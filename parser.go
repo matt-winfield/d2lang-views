@@ -37,9 +37,29 @@ func getViewsNodes(d2map *d2ast.Map) []d2ast.MapNodeBox {
 		viewName := getNodeDisplayName(node)
 
 		fmt.Printf("Checking node %s - %s\n", viewKey, viewName)
+		if isViewNode(node) {
+			views = append(views, node)
+		}
 	}
 
 	return views
+}
+
+// isViewNode determines if the given D2 map node represents a view.
+//
+// node is a view node if it contains a top-level comment with the text "view".
+func isViewNode(node d2ast.MapNodeBox) bool {
+	if node.MapKey == nil || node.MapKey.Value.Map == nil {
+		return false
+	}
+
+	for _, child := range node.MapKey.Value.Map.Nodes {
+		if child.Comment != nil && strings.TrimSpace(child.Comment.Value) == "view" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // getNodeDisplayName safely retrieves the display name of a D2 map node.

@@ -44,7 +44,7 @@ func main() {
 
 	layers := getViewsNodes(ast)
 
-	fmt.Printf("Layers: %+v\n", layers)
+	fmt.Printf("Found %d view nodes\n", len(layers))
 
 	color.Green("Successfully wrote output to %s", outputPath)
 }
