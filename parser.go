@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"io"
+	"strings"
 
 	"oss.terrastruct.com/d2/d2ast"
 	"oss.terrastruct.com/d2/d2parser"
@@ -16,19 +18,53 @@ func parseD2(path string, reader io.Reader) (*d2ast.Map, error) {
 	return d2parser.Parse(path, reader, opts)
 }
 
-type LayerInfo struct {
-	Name  string
-	Items []d2ast.Node
+// getViewsNodes extracts and returns all view nodes from the given D2 map.
+func getViewsNodes(d2map *d2ast.Map) []d2ast.MapNodeBox {
+	var views []d2ast.MapNodeBox
+	layersNode := getLayersNode(d2map)
+
+	if layersNode == nil || layersNode.MapKey == nil || layersNode.MapKey.Value.Map == nil {
+		return views
+	}
+
+	for _, node := range layersNode.MapKey.Value.Map.Nodes {
+		mapKey := node.MapKey
+		if mapKey == nil || mapKey.Key == nil {
+			continue
+		}
+
+		viewKey := mapKey.Key.StringIDA()
+		viewName := getNodeDisplayName(node)
+
+		fmt.Printf("Checking node %s - %s\n", viewKey, viewName)
+	}
+
+	return views
 }
 
-// getLayers extracts and returns the layers from the given D2 map.
-func getLayers(d2map *d2ast.Map) []LayerInfo {
-	var layers []LayerInfo
-	for _, node := range d2map.Children() {
-		layers = append(layers, LayerInfo{
-			Name:  node.Type(),
-			Items: node.Children(),
-		})
+// getNodeDisplayName safely retrieves the display name of a D2 map node.
+func getNodeDisplayName(node d2ast.MapNodeBox) string {
+	if node.MapKey == nil {
+		return ""
 	}
-	return layers
+
+	unboxed := node.MapKey.Primary.Unbox()
+	if unboxed == nil {
+		return strings.Join(node.MapKey.Key.StringIDA(), " ")
+	}
+
+	return node.MapKey.Primary.ScalarString()
+}
+
+// getLayersNode extracts and returns the layers node from the given D2 map.
+func getLayersNode(d2map *d2ast.Map) *d2ast.MapNodeBox {
+	for _, node := range d2map.Nodes {
+		if node.MapKey != nil && node.MapKey.Key != nil {
+			// Check if the key is "layers"
+			if node.MapKey.Key.StringIDA()[0] == "layers" {
+				return &node
+			}
+		}
+	}
+	return nil
 }

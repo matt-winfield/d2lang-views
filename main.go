@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/alexflint/go-arg"
@@ -41,6 +42,10 @@ func main() {
 	err = os.WriteFile(outputPath, json, 0644)
 	checkErr(err, "Unable to write output file")
 
+	layers := getViewsNodes(ast)
+
+	fmt.Printf("Layers: %+v\n", layers)
+
 	color.Green("Successfully wrote output to %s", outputPath)
 }
 
@@ -63,7 +68,7 @@ func checkErr(err error, msg string) {
 
 // astOutputPath constructs the output file path for the AST JSON
 // based on the source file name and destination directory.
-// It appends ".json" to the source file name after stripping the directory path and file extension.
+// It appends "-ast.json" to the source file name after stripping the directory path and file extension.
 func astOutputPath(sourcePath, destinationDir string) string {
 	baseName := sourcePath
 	if idx := len(sourcePath) - 1; idx >= 0 {
