@@ -22,25 +22,27 @@ func main() {
 	}
 
 	content, err := os.ReadFile(args.Source)
-
-	if err != nil {
-		color.Red("ERR: Unable to read source file: %v", err)
-		os.Exit(1)
-	}
+	checkErr(err, "Unable to read source file")
 
 	err = ensureDirExists(args.Destination)
-
-	if err != nil {
-		color.Red("ERR: Unable to create destination directory: %v", err)
-		os.Exit(1)
-	}
+	checkErr(err, "Unable to create destination directory")
 
 	color.Green("Done!" + string(content))
 }
 
+// ensureDirExists checks if a directory exists at the given path,
+// and creates it (including any necessary parents) if it does not.
 func ensureDirExists(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return os.MkdirAll(path, os.ModePerm)
 	}
 	return nil
+}
+
+// checkErr is a helper function that checks for an error and exits the program if one is found.
+func checkErr(err error, msg string) {
+	if err != nil {
+		color.Red("ERR: %s: %v", msg, err)
+		os.Exit(1)
+	}
 }
