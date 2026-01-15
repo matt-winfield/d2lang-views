@@ -1,0 +1,14 @@
+# Simple example with basic entities and one view
+client: "Web Client"
+server: "API Server"
+database: "PostgreSQL"
+
+client -> server: HTTP requests
+server -> database: SQL queries
+
+layers: {
+    backend: { #view
+        server
+        database
+    }
+}

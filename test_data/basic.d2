@@ -1,1 +1,18 @@
 first -> second
+
+layers: {
+    custom: "Custom Name" { #view
+        first
+        second
+    }
+
+    # view
+    view2: {
+        first
+        second
+    }
+
+    default: { #view
+        first -> SomethingElse
+    }
+}

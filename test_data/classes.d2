@@ -1,0 +1,134 @@
+# Example with classes that need to be copied to views and can be overwritten
+
+classes: {
+    service: {
+        shape: rectangle
+        style.fill: "#E8F4FD"
+        style.stroke: "#1976D2"
+        style.border-radius: 8
+    }
+    database: {
+        shape: cylinder
+        style.fill: "#FFF3E0"
+        style.stroke: "#F57C00"
+    }
+    external: {
+        shape: cloud
+        style.fill: "#F3E5F5"
+        style.stroke: "#7B1FA2"
+        style.stroke-dash: 3
+    }
+    deprecated: {
+        style.fill: "#FFEBEE"
+        style.stroke: "#C62828"
+        style.opacity: 0.6
+    }
+    critical: {
+        style.fill: "#FFCDD2"
+        style.stroke: "#B71C1C"
+        style.stroke-width: 3
+    }
+}
+
+auth.class: service
+users.class: service
+orders.class: service
+legacy_orders.class: [service; deprecated]
+
+primary_db.class: database
+analytics_db.class: database
+cache.class: database
+
+stripe.class: external
+sendgrid.class: external
+legacy_payment.class: [external; deprecated]
+
+auth: "Auth Service"
+users: "User Service"
+orders: "Order Service"
+legacy_orders: "Legacy Order Service"
+
+primary_db: "PostgreSQL"
+analytics_db: "ClickHouse"
+cache: "Redis"
+
+stripe: "Stripe API"
+sendgrid: "SendGrid"
+legacy_payment: "Old Payment Provider"
+
+auth -> users
+users -> primary_db
+orders -> primary_db
+orders -> stripe
+orders -> cache
+legacy_orders -> legacy_payment
+legacy_orders -> primary_db
+users -> sendgrid
+orders -> analytics_db
+
+layers: {
+    payment_flow: "Payment Processing" { #view
+        orders
+        stripe
+        legacy_orders
+        legacy_payment
+        primary_db
+
+        # Override: highlight the current payment path as critical
+        orders.class: [service; critical]
+        stripe.class: [external; critical]
+    }
+
+    deprecated_systems: "Deprecated Components" { #view
+        legacy_orders
+        legacy_payment
+        primary_db
+        orders
+
+        migration_note: "Migration in progress" {
+            shape: text
+            style.font-size: 14
+        }
+        legacy_orders -> orders: "migrating to"
+        legacy_payment -> stripe: "replacing with"
+
+        # Need stripe in view to show the replacement target
+        stripe
+    }
+
+    data_layer: "Data Architecture" { #view
+        primary_db
+        analytics_db
+        cache
+        orders
+        users
+
+        # Override database class to show replication status
+        classes: {
+            database: {
+                shape: cylinder
+                style.fill: "#C8E6C9"
+                style.stroke: "#2E7D32"
+            }
+        }
+    }
+
+    external_dependencies: { #view
+        stripe
+        sendgrid
+        legacy_payment
+        orders
+        users
+
+        # Add a new class only for this view
+        classes: {
+            active_integration: {
+                style.stroke-width: 4
+                style.stroke: "#1B5E20"
+            }
+        }
+
+        stripe.class: [external; active_integration]
+        sendgrid.class: [external; active_integration]
+    }
+}

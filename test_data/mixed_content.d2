@@ -1,0 +1,83 @@
+# Example with views containing both references and new entities/relationships
+user: "End User" {
+    shape: person
+}
+browser: "Web Browser"
+loadbalancer: "Load Balancer"
+app1: "App Server 1"
+app2: "App Server 2"
+app3: "App Server 3"
+database: "Primary DB"
+cache: "Redis"
+storage: "S3 Bucket"
+
+user -> browser
+browser -> loadbalancer
+loadbalancer -> app1
+loadbalancer -> app2
+loadbalancer -> app3
+app1 -> database
+app2 -> database
+app3 -> database
+app1 -> cache
+app2 -> cache
+app3 -> cache
+app1 -> storage
+app2 -> storage
+app3 -> storage
+
+layers: {
+    user_perspective: "User's View" { #view
+        user
+        browser
+        loadbalancer
+
+        explanation: "Users only see a single endpoint" {
+            shape: text
+        }
+    }
+    high_availability: "HA Architecture" { #view
+        loadbalancer
+        app1
+        app2
+        app3
+        database
+
+        failover_note: "If one app server fails,\nothers handle the load" {
+            shape: text
+        }
+        app1.style.fill: "#90EE90"
+        app2.style.fill: "#90EE90"
+        app3.style.fill: "#FFB6C1"
+    }
+    caching_layer: "Caching Strategy" { #view
+        app1
+        app2
+        cache
+        database
+
+        cache_hit: "Cache Hit Path" {
+            shape: cloud
+            style.stroke-dash: 3
+        }
+        cache_miss: "Cache Miss Path" {
+            shape: cloud
+            style.stroke-dash: 3
+        }
+
+        app1 -> cache_hit
+        app2 -> cache_hit
+        cache_hit -> cache: "90% of reads"
+        app1 -> cache_miss
+        app2 -> cache_miss
+        cache_miss -> database: "10% of reads"
+    }
+    static_assets: { #view
+        browser
+        storage
+
+        cdn: "CloudFront CDN"
+        browser -> cdn: "Static files"
+        cdn -> storage
+    }
+}

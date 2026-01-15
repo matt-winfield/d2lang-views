@@ -1,0 +1,51 @@
+# Example with many relationships between entities
+auth: "Authentication Service"
+users: "User Service"
+orders: "Order Service"
+inventory: "Inventory Service"
+payments: "Payment Service"
+notifications: "Notification Service"
+analytics: "Analytics Service"
+gateway: "API Gateway"
+
+gateway -> auth: validate token
+gateway -> users: user requests
+gateway -> orders: order requests
+gateway -> inventory: stock queries
+
+auth -> users: fetch user data
+users -> notifications: welcome email
+orders -> inventory: reserve stock
+orders -> payments: process payment
+orders -> notifications: order confirmation
+payments -> notifications: payment receipt
+inventory -> notifications: low stock alert
+orders -> analytics: order events
+payments -> analytics: payment events
+users -> analytics: user events
+
+layers: {
+    auth_flow: "Authentication Flow" { #view
+        gateway
+        auth
+        users
+    }
+    order_lifecycle: "Order Lifecycle" { #view
+        orders
+        inventory
+        payments
+        notifications
+        analytics
+
+        orders -> inventory: "1. Check & reserve"
+        orders -> payments: "2. Charge customer"
+        orders -> notifications: "3. Send confirmation"
+    }
+    notification_sources: { #view
+        users
+        orders
+        payments
+        inventory
+        notifications
+    }
+}

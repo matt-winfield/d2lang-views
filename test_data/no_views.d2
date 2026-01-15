@@ -1,0 +1,19 @@
+# Example with no view layers - edge case for testing
+frontend: "React App"
+backend: "Node.js API"
+db: "MongoDB"
+
+frontend -> backend: REST API
+backend -> db: Mongoose
+
+# This file has layers but none are marked as views
+layers: {
+    production: {
+        frontend.style.fill: "#90EE90"
+        backend.style.fill: "#90EE90"
+    }
+    staging: {
+        frontend.style.fill: "#FFD700"
+        backend.style.fill: "#FFD700"
+    }
+}
