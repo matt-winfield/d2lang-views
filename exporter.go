@@ -23,28 +23,27 @@ func replaceViewLayers(reader io.Reader, graph *d2graph.Graph, rootObjectIds []s
 	var operations []rangeOperation
 	for _, view := range views {
 		viewResult := generateViewContent(view, graph, rootObjectIds, source)
-		if len(viewResult.replacedRanges) == 0 {
+		if viewResult.newContent == "" {
 			continue
 		}
 
-		// Find the first range (minimum start byte) - this is where we insert the new content
-		firstRangeIdx := 0
-		for i, r := range viewResult.replacedRanges {
-			if r.Start.Byte < viewResult.replacedRanges[firstRangeIdx].Start.Byte {
-				firstRangeIdx = i
-			}
-		}
+		// Apply indentation to the new content
+		indentedContent := applyIndentation(viewResult.newContent, viewResult.indentation)
 
-		// Create operations: replace at first range, remove all others
-		for i, r := range viewResult.replacedRanges {
-			if i == firstRangeIdx {
-				operations = append(operations, rangeOperation{
-					r:           r,
-					replacement: viewResult.newContent,
-				})
-			} else {
-				operations = append(operations, rangeOperation{r: r})
-			}
+		// Insert new content at the earliest reference position (insertByte)
+		// This is a pure insertion (start == end), not a replacement
+		insertRange := d2ast.Range{
+			Start: d2ast.Position{Byte: viewResult.insertByte},
+			End:   d2ast.Position{Byte: viewResult.insertByte},
+		}
+		operations = append(operations, rangeOperation{
+			r:           insertRange,
+			replacement: indentedContent,
+		})
+
+		// Remove all replaced ranges (these are separate from the insertion point)
+		for _, r := range viewResult.replacedRanges {
+			operations = append(operations, rangeOperation{r: r})
 		}
 	}
 
@@ -52,8 +51,12 @@ func replaceViewLayers(reader io.Reader, graph *d2graph.Graph, rootObjectIds []s
 }
 
 type viewReplacementResult struct {
-	newContent string
-	// replacedRanges holds the ranges in the original source that were replaced with view content
+	// insertByte is the byte position in the source where the new content should be inserted.
+	insertByte int
+	// indentation is the whitespace prefix to prepend to each line of the new content.
+	indentation string
+	newContent  string
+	// replacedRanges holds the ranges in the original source that were replaced with view content and should be removed.
 	replacedRanges []d2ast.Range
 }
 
@@ -68,6 +71,12 @@ func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectId
 	processedIds := make(map[string]bool)
 	replacedRanges := make([]d2ast.Range, 0, len(processedIds))
 
+	// insertByte tracks the start of the line containing the earliest reference
+	// This is where the new view content will be inserted
+	insertByte := len(source)
+	// indentation is extracted from the source between line start and reference position
+	indentation := ""
+
 	for _, object := range view.Objects {
 		// Skip container objects that have children - only include leaf nodes
 		if len(object.ChildrenArray) > 0 {
@@ -81,6 +90,14 @@ func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectId
 			builder.WriteString(getObjectD2Representation(object, graph))
 			processedIds[objectId] = true
 			for _, reference := range object.References {
+				// Track the earliest line start position for insertion
+				lineStart := findLineStart(source, reference.Key.Range.Start.Byte)
+				if lineStart < insertByte {
+					insertByte = lineStart
+					// Extract indentation (whitespace between line start and reference)
+					indentation = source[lineStart:reference.Key.Range.Start.Byte]
+				}
+
 				if reference.InEdge() {
 					continue
 				}
@@ -95,6 +112,8 @@ func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectId
 	return viewReplacementResult{
 		newContent:     builder.String(),
 		replacedRanges: replacedRanges,
+		insertByte:     insertByte,
+		indentation:    indentation,
 	}
 }
 
@@ -115,6 +134,38 @@ func extendRangeToEndOfLine(r d2ast.Range, source string) d2ast.Range {
 			Byte:   endByte,
 		},
 	}
+}
+
+// applyIndentation prepends the given indentation to each line of the content.
+// This ensures all inserted content maintains proper indentation within the view.
+func applyIndentation(content string, indentation string) string {
+	if indentation == "" || content == "" {
+		return content
+	}
+	// Split content into lines, add indentation to each non-empty line
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		// Don't add indentation to empty lines or the final empty line after trailing newline
+		if line != "" {
+			lines[i] = indentation + line
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// findLineStart finds the byte position of the start of the line containing the given byte position.
+// It returns the position right after the previous newline (or 0 if at the start of the file).
+func findLineStart(source string, bytePos int) int {
+	if bytePos <= 0 {
+		return 0
+	}
+	// Search backwards for the newline
+	for i := bytePos - 1; i >= 0; i-- {
+		if source[i] == '\n' {
+			return i + 1
+		}
+	}
+	return 0
 }
 
 // getObjectD2Representation returns the D2 language representation of the given object.
