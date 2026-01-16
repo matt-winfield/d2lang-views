@@ -79,18 +79,18 @@ func getNodeDisplayName(node d2ast.MapNodeBox) string {
 // getLayersNode extracts and returns the layers node from the given D2 map.
 func getLayersNode(d2map *d2ast.Map) *d2ast.MapNodeBox {
 	for _, node := range d2map.Nodes {
-		if isLayersNode(node) {
+		if mapKeyHasId(node, "layers") {
 			return &node
 		}
 	}
 	return nil
 }
 
-// isLayersNode determines if the given D2 map node represents the layers node.
-func isLayersNode(node d2ast.MapNodeBox) bool {
+// mapKeyHasId determines if the given D2 map node represents a specific key in a map
+func mapKeyHasId(node d2ast.MapNodeBox, key string) bool {
 	if node.MapKey == nil || node.MapKey.Key == nil {
 		return false
 	}
 
-	return node.MapKey.Key.StringIDA()[0] == "layers"
+	return node.MapKey.Key.StringIDA()[0] == key
 }
