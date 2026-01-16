@@ -18,22 +18,37 @@ func replaceViewLayers(reader io.Reader, graph *d2graph.Graph, rootObjectIds []s
 		return "", err
 	}
 	source := string(contentBytes)
-	var builder strings.Builder
-	builder.WriteString(source)
-	replacedRanges := make([]d2ast.Range, 0)
 
 	views := getViewsNodes(graph)
+	var operations []rangeOperation
 	for _, view := range views {
-		viewReplacementResult := generateViewContent(view, graph, rootObjectIds)
-		builder.WriteString("\n\n")
-		builder.WriteString("# View: ")
-		builder.WriteString(view.Name)
-		builder.WriteString("\n")
-		builder.WriteString(viewReplacementResult.newContent)
-		replacedRanges = append(replacedRanges, viewReplacementResult.replacedRanges...)
+		viewResult := generateViewContent(view, graph, rootObjectIds, source)
+		if len(viewResult.replacedRanges) == 0 {
+			continue
+		}
+
+		// Find the first range (minimum start byte) - this is where we insert the new content
+		firstRangeIdx := 0
+		for i, r := range viewResult.replacedRanges {
+			if r.Start.Byte < viewResult.replacedRanges[firstRangeIdx].Start.Byte {
+				firstRangeIdx = i
+			}
+		}
+
+		// Create operations: replace at first range, remove all others
+		for i, r := range viewResult.replacedRanges {
+			if i == firstRangeIdx {
+				operations = append(operations, rangeOperation{
+					r:           r,
+					replacement: viewResult.newContent,
+				})
+			} else {
+				operations = append(operations, rangeOperation{r: r})
+			}
+		}
 	}
 
-	return builder.String(), nil
+	return applyRangeOperations(source, operations), nil
 }
 
 type viewReplacementResult struct {
@@ -47,7 +62,8 @@ type viewReplacementResult struct {
 // view is the D2 graph node representing the view
 // graph is the full D2 graph (needed for getting object info that isn't included in the view)
 // rootObjectIds is a list of entity IDs from the base layer to include in the view
-func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectIds []string) viewReplacementResult {
+// source is the original D2 source content (used to find line endings)
+func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectIds []string, source string) viewReplacementResult {
 	var builder strings.Builder
 	processedIds := make(map[string]bool)
 	replacedRanges := make([]d2ast.Range, 0, len(processedIds))
@@ -65,7 +81,9 @@ func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectId
 			builder.WriteString(getObjectD2Representation(object, graph))
 			processedIds[objectId] = true
 			for _, reference := range object.References {
-				replacedRanges = append(replacedRanges, reference.Key.Range)
+				// Extend the range to the end of the line to capture the full statement
+				fullRange := extendRangeToEndOfLine(reference.Key.Range, source)
+				replacedRanges = append(replacedRanges, fullRange)
 			}
 		}
 	}
@@ -73,6 +91,25 @@ func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectId
 	return viewReplacementResult{
 		newContent:     builder.String(),
 		replacedRanges: replacedRanges,
+	}
+}
+
+// extendRangeToEndOfLine extends a range to the end of the line (newline character)
+// This captures the full statement including any label/value after the key
+func extendRangeToEndOfLine(r d2ast.Range, source string) d2ast.Range {
+	endByte := r.End.Byte
+	// Find the next newline from the end position
+	for endByte < len(source) && source[endByte] != '\n' {
+		endByte++
+	}
+	return d2ast.Range{
+		Path:  r.Path,
+		Start: r.Start,
+		End: d2ast.Position{
+			Line:   r.End.Line,
+			Column: r.End.Column + (endByte - r.End.Byte),
+			Byte:   endByte,
+		},
 	}
 }
 
@@ -134,4 +171,59 @@ func getLabel(viewObject *d2graph.Object, baseObject *d2graph.Object) string {
 		return baseObject.Label.Value
 	}
 	return ""
+}
+
+// rangeOperation represents an operation to perform on a range in the source.
+// If replacement is empty, the range is removed. Otherwise, it's replaced with the content.
+type rangeOperation struct {
+	r           d2ast.Range
+	replacement string
+}
+
+// applyRangeOperations applies a set of range operations (replacements and removals) to the source.
+// Overlapping operations are merged. Operations are processed in reverse byte order to preserve indices.
+func applyRangeOperations(source string, ops []rangeOperation) string {
+	if len(ops) == 0 {
+		return source
+	}
+
+	// Sort operations by start byte in ascending order for merging
+	sortedOps := make([]rangeOperation, len(ops))
+	copy(sortedOps, ops)
+	slices.SortFunc(sortedOps, func(a, b rangeOperation) int {
+		return a.r.Start.Byte - b.r.Start.Byte
+	})
+
+	// Merge overlapping operations
+	merged := []rangeOperation{sortedOps[0]}
+	for i := 1; i < len(sortedOps); i++ {
+		last := &merged[len(merged)-1]
+		current := sortedOps[i]
+		if current.r.Start.Byte <= last.r.End.Byte {
+			// Overlapping or adjacent - extend the range and combine replacements
+			if current.r.End.Byte > last.r.End.Byte {
+				last.r.End = current.r.End
+			}
+			// Keep existing replacement content (first one wins for the insertion point)
+			if last.replacement == "" && current.replacement != "" {
+				last.replacement = current.replacement
+			}
+		} else {
+			merged = append(merged, current)
+		}
+	}
+
+	// Apply merged operations in reverse order (end to start) to preserve indices
+	result := source
+	for i := len(merged) - 1; i >= 0; i-- {
+		op := merged[i]
+		start := op.r.Start.Byte
+		end := op.r.End.Byte
+		if start < 0 || end < 0 || start > len(result) || end > len(result) {
+			continue
+		}
+		result = result[:start] + op.replacement + result[end:]
+	}
+
+	return result
 }

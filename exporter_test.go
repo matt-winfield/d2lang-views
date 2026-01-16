@@ -3,6 +3,8 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"oss.terrastruct.com/d2/d2ast"
 )
 
 func TestReplaceViewLayers_SingleView(t *testing.T) {
@@ -31,7 +33,18 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := content + "\n\n# View: view1\na: \"Entity A\"\n"
+	expected := `a: "Entity A"
+b: "Entity B"
+
+a -> b
+
+layers: {
+    view1: { #view
+        a: "Entity A"
+
+    }
+}
+`
 	if result != expected {
 		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
 	}
@@ -66,7 +79,7 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := content + "\n\n# View: view1\na: \"Entity A\"\n\n\n# View: view2\nb: \"Entity B\"\nc: \"Entity C\"\n"
+	expected := "a: \"Entity A\"\nb: \"Entity B\"\nc: \"Entity C\"\n\nlayers: {\n    view1: { #view\n        a: \"Entity A\"\n\n    }\n    view2: { #view\n        b: \"Entity B\"\nc: \"Entity C\"\n\n        \n    }\n}\n"
 	if result != expected {
 		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
 	}
@@ -147,7 +160,8 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := content + "\n\n# View: view1\na: \"Custom Label\"\n"
+	// Full statement "a: Custom Label" is replaced with new content
+	expected := "a: \"Entity A\"\nb: \"Entity B\"\n\nlayers: {\n    view1: { #view\n        a: \"Custom Label\"\n\n    }\n}\n"
 	if result != expected {
 		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
 	}
@@ -180,7 +194,7 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := content + "\n\n# View: view1\na.b: \"Nested B\"\nc: \"Entity C\"\n"
+	expected := "a: {\n    b: \"Nested B\"\n}\nc: \"Entity C\"\n\nlayers: {\n    view1: { #view\n        a.b: \"Nested B\"\nc: \"Entity C\"\n\n        \n    }\n}\n"
 	if result != expected {
 		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
 	}
@@ -211,7 +225,7 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := content + "\n\n# View: view1\nx: \"X\"\n"
+	expected := "x: \"X\"\ny: \"Y\"\n\nlayers: {\n    view1: {\n        # view\n        x: \"X\"\n\n    }\n}\n"
 	if result != expected {
 		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
 	}
@@ -245,7 +259,7 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := content + "\n\n# View: view1\na: \"Entity A\"\n"
+	expected := "# This is a comment\na: \"Entity A\"\nb: \"Entity B\"\n\n# Another comment\na -> b: connection\n\nlayers: {\n    view1: { #view\n        a: \"Entity A\"\n\n    }\n}\n"
 	if result != expected {
 		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
 	}
@@ -276,7 +290,7 @@ layers: {
 	}
 
 	// Only 'a' should be included since 'missing' is not in root
-	expected := content + "\n\n# View: view1\na: \"Entity A\"\n"
+	expected := "a: \"Entity A\"\n\nlayers: {\n    view1: { #view\n        a: \"Entity A\"\n\n        missing\n    }\n}\n"
 	if result != expected {
 		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
 	}
@@ -307,7 +321,7 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := content + "\n\n# View: backend\nserver: \"API Server\"\ndatabase: \"PostgreSQL\"\n"
+	expected := "server: \"API Server\"\ndatabase: \"PostgreSQL\"\n\nlayers: {\n    backend: \"Backend Architecture\" { #view\n        server: \"API Server\"\ndatabase: \"PostgreSQL\"\n\n        \n    }\n}\n"
 	if result != expected {
 		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
 	}
@@ -342,7 +356,7 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := content + "\n\n# View: view1\na.b.c.d: \"Deep\"\n"
+	expected := "a: {\n    b: {\n        c: {\n            d: \"Deep\"\n        }\n    }\n}\n\nlayers: {\n    view1: { #view\n        a.b.c.d: \"Deep\"\n\n    }\n}\n"
 	if result != expected {
 		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
 	}
@@ -377,7 +391,8 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := content + "\n\n# View: view1\nclient: \"Web Client\"\nserver: \"API Server\"\ndatabase: \"PostgreSQL\"\ncache: \"Redis\"\n"
+	// First entity is replaced with all content, other entities leave whitespace where removed
+	expected := "client: \"Web Client\"\nserver: \"API Server\"\ndatabase: \"PostgreSQL\"\ncache: \"Redis\"\n\nlayers: {\n    view1: { #view\n        client: \"Web Client\"\nserver: \"API Server\"\ndatabase: \"PostgreSQL\"\ncache: \"Redis\"\n\n        \n        \n        \n    }\n}\n"
 	if result != expected {
 		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
 	}
@@ -405,7 +420,8 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := content + "\n\n# View: view1\n"
+	// Empty view has no ranges to replace, so content is unchanged
+	expected := content
 	if result != expected {
 		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
 	}
@@ -446,7 +462,7 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := content + "\n\n# View: view1\na: \"Entity A\"\n\n\n# View: view2\nc: \"Entity C\"\n"
+	expected := "a: \"Entity A\"\nb: \"Entity B\"\nc: \"Entity C\"\n\nlayers: {\n    view1: { #view\n        a: \"Entity A\"\n\n    }\n    layer1: {\n        b\n    }\n    view2: { #view\n        c: \"Entity C\"\n\n    }\n    layer2: {\n        a\n        b\n    }\n}\n"
 	if result != expected {
 		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
 	}
@@ -477,7 +493,7 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := content + "\n\n# View: view1\na\nb: \"Entity B\"\n"
+	expected := "a\nb: \"Entity B\"\n\nlayers: {\n    view1: { #view\n        a\nb: \"Entity B\"\n\n        \n    }\n}\n"
 	if result != expected {
 		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
 	}
@@ -512,8 +528,115 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := content + "\n\n# View: view1\na.x: \"X in A\"\nb.x: \"X in B\"\n"
+	expected := "a: {\n    x: \"X in A\"\n}\nb: {\n    x: \"X in B\"\n}\n\nlayers: {\n    view1: { #view\n        a.x: \"X in A\"\nb.x: \"X in B\"\n\n        \n    }\n}\n"
 	if result != expected {
 		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
+	}
+}
+
+// Helper to create a d2ast.Range with just byte positions
+func makeRange(startByte, endByte int) d2ast.Range {
+	return d2ast.Range{
+		Start: d2ast.Position{Byte: startByte},
+		End:   d2ast.Position{Byte: endByte},
+	}
+}
+
+// Helper to create a rangeOperation
+func makeOp(startByte, endByte int, replacement string) rangeOperation {
+	return rangeOperation{
+		r:           makeRange(startByte, endByte),
+		replacement: replacement,
+	}
+}
+
+func TestApplyRangeOperations_EmptyOps(t *testing.T) {
+	source := "hello world"
+	result := applyRangeOperations(source, []rangeOperation{})
+	if result != source {
+		t.Errorf("expected %q, got %q", source, result)
+	}
+}
+
+func TestApplyRangeOperations_SingleReplacement(t *testing.T) {
+	source := "hello world"
+	ops := []rangeOperation{makeOp(0, 5, "hi")} // replace "hello" with "hi"
+	result := applyRangeOperations(source, ops)
+	expected := "hi world"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestApplyRangeOperations_SingleRemoval(t *testing.T) {
+	source := "hello world"
+	ops := []rangeOperation{makeOp(5, 11, "")} // remove " world"
+	result := applyRangeOperations(source, ops)
+	expected := "hello"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestApplyRangeOperations_MultipleNonOverlapping(t *testing.T) {
+	source := "abcdefghij"
+	ops := []rangeOperation{
+		makeOp(2, 4, "XX"), // replace "cd" with "XX"
+		makeOp(6, 8, ""),   // remove "gh"
+	}
+	result := applyRangeOperations(source, ops)
+	expected := "abXXefij"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestApplyRangeOperations_OverlappingWithReplacement(t *testing.T) {
+	source := "abcdefghij"
+	ops := []rangeOperation{
+		makeOp(2, 5, "NEW"), // replace "cde" with "NEW"
+		makeOp(4, 8, ""),    // remove "efgh" - overlaps, should merge
+	}
+	result := applyRangeOperations(source, ops)
+	expected := "abNEWij" // merged range 2-8, replacement from first op
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestApplyRangeOperations_OverlappingReplacementSecond(t *testing.T) {
+	source := "abcdefghij"
+	ops := []rangeOperation{
+		makeOp(2, 5, ""),       // remove "cde"
+		makeOp(4, 8, "SECOND"), // replace "efgh" - overlaps, but first op has no replacement
+	}
+	result := applyRangeOperations(source, ops)
+	expected := "abSECONDij" // merged range 2-8, replacement from second op
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestApplyRangeOperations_ReplaceWithLongerContent(t *testing.T) {
+	source := "abc"
+	ops := []rangeOperation{makeOp(1, 2, "LONGER")} // replace "b" with "LONGER"
+	result := applyRangeOperations(source, ops)
+	expected := "aLONGERc"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestApplyRangeOperations_MultipleReplacementsInOrder(t *testing.T) {
+	source := "one two three"
+	ops := []rangeOperation{
+		makeOp(0, 3, "1"),  // "one" -> "1"
+		makeOp(4, 7, "2"),  // "two" -> "2"
+		makeOp(8, 13, "3"), // "three" -> "3"
+	}
+	result := applyRangeOperations(source, ops)
+	expected := "1 2 3"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
 	}
 }
