@@ -162,7 +162,7 @@ layers: {
 		t.Fatalf("expected 1 view in simple.d2, got %d", len(views))
 	}
 
-	name := getNodeDisplayName(views[0])
+	name := views[0].Name
 	if name != "backend" {
 		t.Fatalf("expected view name 'backend', got '%s'", name)
 	}
@@ -209,7 +209,7 @@ layers: {
 	// Verify custom name is extracted
 	var foundCustomName bool
 	for _, view := range views {
-		name := getNodeDisplayName(view)
+		name := view.Root.Label.Value
 		if name == "Custom Name" {
 			foundCustomName = true
 		}
@@ -342,8 +342,9 @@ layers: {
 
 	views := getViewsNodes(d2graph)
 
-	if !isViewNode(views[0]) {
-		t.Fatal("expected view to be detected when # view comment exists with other comments")
+	viewName := views[0].Name
+	if viewName != "myview" {
+		t.Fatalf("expected view to be detected when # view comment exists with other comments, got '%s'", viewName)
 	}
 }
 
@@ -395,7 +396,7 @@ layers: {
 		t.Fatalf("expected 1 view, got %d", len(views))
 	}
 
-	name := getNodeDisplayName(views[0])
+	name := views[0].Root.Label.Value
 	if !strings.Contains(name, "日本語") {
 		t.Fatalf("expected unicode display name, got '%s'", name)
 	}

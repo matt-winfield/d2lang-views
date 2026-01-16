@@ -21,13 +21,14 @@ func compileD2(path string, reader io.Reader) (*d2graph.Graph, *d2target.Config,
 }
 
 // getViewsNodes extracts and returns all view nodes from the given D2 map.
-func getViewsNodes(d2graph *d2graph.Graph) []d2ast.MapNodeBox {
-	if d2graph == nil || d2graph.AST == nil {
-		return []d2ast.MapNodeBox{}
+func getViewsNodes(graph *d2graph.Graph) []*d2graph.Graph {
+	if graph == nil || graph.AST == nil {
+		return []*d2graph.Graph{}
 	}
 
-	var views []d2ast.MapNodeBox
-	layersNode := getLayersNode(d2graph)
+	var views []*d2graph.Graph
+	var astViews []d2ast.MapNodeBox
+	layersNode := getLayersNode(graph)
 
 	if layersNode == nil || layersNode.MapKey == nil || layersNode.MapKey.Value.Map == nil {
 		return views
@@ -44,7 +45,16 @@ func getViewsNodes(d2graph *d2graph.Graph) []d2ast.MapNodeBox {
 
 		fmt.Printf("Checking node %s - %s\n", viewKey, viewName)
 		if isViewNode(node) {
-			views = append(views, node)
+			astViews = append(astViews, node)
+		}
+	}
+
+	for _, astView := range astViews {
+		for _, gNode := range graph.Layers {
+			if gNode.Name == astView.MapKey.Key.StringIDA()[0] {
+				views = append(views, gNode)
+				break
+			}
 		}
 	}
 
