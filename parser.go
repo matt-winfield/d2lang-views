@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"strings"
 
@@ -40,10 +39,6 @@ func getViewsNodes(graph *d2graph.Graph) []*d2graph.Graph {
 			continue
 		}
 
-		viewKey := mapKey.Key.StringIDA()
-		viewName := getNodeDisplayName(node)
-
-		fmt.Printf("Checking node %s - %s\n", viewKey, viewName)
 		if isViewNode(node) {
 			astViews = append(astViews, node)
 		}
@@ -111,9 +106,9 @@ func mapKeyHasId(node d2ast.MapNodeBox, key string) bool {
 	return node.MapKey.Key.StringIDA()[0] == key
 }
 
-// extractRootObjects extracts the entity IDs from the base layer of the D2 map.
+// extractRootObjectIds extracts the entity IDs from the base layer of the D2 map.
 // The retuned ID of an entity includes all parents separated by dots.
-func extractRootObjects(d2graph *d2graph.Graph) []string {
+func extractRootObjectIds(d2graph *d2graph.Graph) []string {
 	var entities = make(map[string]struct{})
 
 	for _, child := range d2graph.Root.ChildrenArray {

@@ -530,7 +530,7 @@ steps: {
 				t.Fatalf("failed to parse: %v", err)
 			}
 
-			entities := extractRootObjects(d2graph)
+			entities := extractRootObjectIds(d2graph)
 
 			for _, expected := range tt.expectedIDs {
 				if !slices.Contains(entities, expected) {

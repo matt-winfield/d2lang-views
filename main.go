@@ -41,9 +41,18 @@ func main() {
 	err = os.WriteFile(graphOutputPath, graphJson, 0644)
 	checkErr(err, "Unable to write output file")
 
-	layers := getViewsNodes(graph)
+	views := getViewsNodes(graph)
+	fmt.Printf("Found %d view nodes\n", len(views))
 
-	fmt.Printf("Found %d view nodes\n", len(layers))
+	rootObjectIds := extractRootObjectIds(graph)
+
+	sourceReader := bytes.NewReader(content)
+	viewContent, err := replaceViewLayers(sourceReader, graph, rootObjectIds)
+	checkErr(err, "Unable to replace view content")
+
+	viewOutputPath := getOutputFilePath(args.Source, args.Destination, "-with-views.d2")
+	err = os.WriteFile(viewOutputPath, []byte(viewContent), 0644)
+	checkErr(err, "Unable to write output file with views")
 
 	color.Green("Successfully wrote output to %s", graphOutputPath)
 }
