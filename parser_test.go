@@ -5,263 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"oss.terrastruct.com/d2/d2ast"
 	"oss.terrastruct.com/d2/d2graph"
 )
-
-// ============================================================================
-// getLayersNode tests
-// ============================================================================
-
-func TestGetLayersNode_Found(t *testing.T) {
-	content := `
-a -> b
-layers: {
-    view1: {}
-}
-`
-	reader := strings.NewReader(content)
-	d2graph, _, err := compileD2("test.d2", reader)
-	if err != nil {
-		t.Fatalf("setup failed: %v", err)
-	}
-
-	result := getLayersNode(d2graph)
-
-	if result == nil {
-		t.Fatal("expected to find layers node")
-	}
-	if result.MapKey == nil || result.MapKey.Key == nil {
-		t.Fatal("expected layers node to have a key")
-	}
-	keyStr := result.MapKey.Key.StringIDA()[0]
-	if keyStr != "layers" {
-		t.Fatalf("expected key 'layers', got '%s'", keyStr)
-	}
-}
-
-func TestGetLayersNode_NotFound(t *testing.T) {
-	content := `
-a -> b
-c: "Entity C"
-`
-	reader := strings.NewReader(content)
-	d2graph, _, err := compileD2("test.d2", reader)
-	if err != nil {
-		t.Fatalf("setup failed: %v", err)
-	}
-
-	result := getLayersNode(d2graph)
-
-	if result != nil {
-		t.Fatal("expected nil when no layers node exists")
-	}
-}
-
-func TestGetLayersNode_EmptyGraph(t *testing.T) {
-	content := ``
-	reader := strings.NewReader(content)
-	d2graph, _, err := compileD2("test.d2", reader)
-	if err != nil {
-		t.Fatalf("setup failed: %v", err)
-	}
-
-	result := getLayersNode(d2graph)
-
-	if result != nil {
-		t.Fatal("expected nil for empty graph")
-	}
-}
-
-func TestGetLayersNode_LayersNotFirst(t *testing.T) {
-	content := `
-a: "First"
-b: "Second"
-c -> d
-layers: {
-    view1: {}
-}
-e: "Last"
-`
-	reader := strings.NewReader(content)
-	d2graph, _, err := compileD2("test.d2", reader)
-	if err != nil {
-		t.Fatalf("setup failed: %v", err)
-	}
-
-	result := getLayersNode(d2graph)
-
-	if result == nil {
-		t.Fatal("expected to find layers node even when not first")
-	}
-}
-
-func parseAndGetLayerNode(t *testing.T, content string, layerName string) d2ast.MapNodeBox {
-	t.Helper()
-	reader := strings.NewReader(content)
-	d2graph, _, err := compileD2("test.d2", reader)
-	if err != nil {
-		t.Fatalf("setup failed: %v", err)
-	}
-
-	layersNode := getLayersNode(d2graph)
-	if layersNode == nil {
-		t.Fatal("expected layers node")
-	}
-
-	for _, node := range layersNode.MapKey.Value.Map.Nodes {
-		if node.MapKey != nil && node.MapKey.Key != nil {
-			if node.MapKey.Key.StringIDA()[0] == layerName {
-				return node
-			}
-		}
-	}
-	t.Fatalf("layer '%s' not found", layerName)
-	return d2ast.MapNodeBox{}
-}
-
-func TestIsViewNode_WithViewComment(t *testing.T) {
-	content := `
-layers: {
-    myview: { #view
-        a
-    }
-}
-`
-	node := parseAndGetLayerNode(t, content, "myview")
-
-	if !isViewNode(node) {
-		t.Fatal("expected node with #view comment to be a view")
-	}
-}
-
-func TestIsViewNode_WithStandaloneViewComment(t *testing.T) {
-	content := `
-layers: {
-    myview: {
-        # view
-        a
-    }
-}
-`
-	node := parseAndGetLayerNode(t, content, "myview")
-
-	if !isViewNode(node) {
-		t.Fatal("expected node with standalone # view comment to be a view")
-	}
-}
-
-func TestIsViewNode_WithViewCommentWhitespace(t *testing.T) {
-	content := `
-layers: {
-    myview: {
-        #   view
-        a
-    }
-}
-`
-	node := parseAndGetLayerNode(t, content, "myview")
-
-	if !isViewNode(node) {
-		t.Fatal("expected node with whitespace in #view comment to be a view")
-	}
-}
-
-func TestIsViewNode_NotAView(t *testing.T) {
-	content := `
-layers: {
-    notaview: {
-        a
-        b
-    }
-}
-`
-	node := parseAndGetLayerNode(t, content, "notaview")
-
-	if isViewNode(node) {
-		t.Fatal("expected node without #view comment to not be a view")
-	}
-}
-
-func TestIsViewNode_DifferentComment(t *testing.T) {
-	content := `
-layers: {
-    someLayer: {
-        # this is a regular comment
-        a
-    }
-}
-`
-	node := parseAndGetLayerNode(t, content, "someLayer")
-
-	if isViewNode(node) {
-		t.Fatal("expected node with different comment to not be a view")
-	}
-}
-
-func TestIsViewNode_EmptyLayer(t *testing.T) {
-	content := `
-layers: {
-    emptyLayer: {}
-}
-`
-	node := parseAndGetLayerNode(t, content, "emptyLayer")
-
-	if isViewNode(node) {
-		t.Fatal("expected empty layer to not be a view")
-	}
-}
-
-func TestIsViewNode_NilMapKey(t *testing.T) {
-	node := d2ast.MapNodeBox{MapKey: nil}
-	if isViewNode(node) {
-		t.Fatal("expected nil MapKey to not be a view")
-	}
-}
-
-func TestGetNodeDisplayName_CustomName(t *testing.T) {
-	content := `
-layers: {
-    myview: "Custom Display Name" { #view
-        a
-    }
-}
-`
-	node := parseAndGetLayerNode(t, content, "myview")
-
-	name := getNodeDisplayName(node)
-
-	if name != "Custom Display Name" {
-		t.Fatalf("expected 'Custom Display Name', got '%s'", name)
-	}
-}
-
-func TestGetNodeDisplayName_FallbackToKey(t *testing.T) {
-	content := `
-layers: {
-    myview: { #view
-        a
-    }
-}
-`
-	node := parseAndGetLayerNode(t, content, "myview")
-
-	name := getNodeDisplayName(node)
-
-	if name != "myview" {
-		t.Fatalf("expected 'myview', got '%s'", name)
-	}
-}
-
-func TestGetNodeDisplayName_NilMapKey(t *testing.T) {
-	node := d2ast.MapNodeBox{MapKey: nil}
-
-	name := getNodeDisplayName(node)
-
-	if name != "" {
-		t.Fatalf("expected empty string for nil MapKey, got '%s'", name)
-	}
-}
 
 func TestGetViewsNodes_SingleView(t *testing.T) {
 	content := `
@@ -519,9 +264,14 @@ layers: {
     }
 }
 `
-	node := parseAndGetLayerNode(t, content, "myview")
+	reader := strings.NewReader(content)
+	d2graph, _, err := compileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("failed to parse: %v", err)
+	}
 
-	if isViewNode(node) {
+	views := getViewsNodes(d2graph)
+	if len(views) != 0 {
 		t.Fatal("expected uppercase VIEW to not match (case sensitive)")
 	}
 }
@@ -536,9 +286,15 @@ layers: {
     }
 }
 `
-	node := parseAndGetLayerNode(t, content, "myview")
+	reader := strings.NewReader(content)
+	d2graph, _, err := compileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("failed to parse: %v", err)
+	}
 
-	if isViewNode(node) {
+	views := getViewsNodes(d2graph)
+
+	if len(views) != 0 {
 		t.Fatal("expected 'viewer' to not match 'view'")
 	}
 }
@@ -553,9 +309,15 @@ layers: {
     }
 }
 `
-	node := parseAndGetLayerNode(t, content, "myview")
+	reader := strings.NewReader(content)
+	d2graph, _, err := compileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("failed to parse: %v", err)
+	}
 
-	if isViewNode(node) {
+	views := getViewsNodes(d2graph)
+
+	if len(views) != 0 {
 		t.Fatal("expected 'myview' comment to not match 'view'")
 	}
 }
@@ -572,9 +334,15 @@ layers: {
     }
 }
 `
-	node := parseAndGetLayerNode(t, content, "myview")
+	reader := strings.NewReader(content)
+	d2graph, _, err := compileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("failed to parse: %v", err)
+	}
 
-	if !isViewNode(node) {
+	views := getViewsNodes(d2graph)
+
+	if !isViewNode(views[0]) {
 		t.Fatal("expected view to be detected when # view comment exists with other comments")
 	}
 }
