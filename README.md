@@ -58,7 +58,7 @@ layers: {
 -   [x] Extract implicitly defined entities from relationships in the base layer.
 -   [x] Identify referenced entities from the base layer within each view layer.
 -   [x] Generate a new D2 diagram file, copying the necessary entities into the view layer.
--   [ ] Copy the relevant relationships between the referenced entities into the view layer.
+-   [x] Copy the relevant relationships between the referenced entities into the view layer.
 -   [ ] Support `# include classes.<class-name` to include entities of a specific class in the view.
 -   [ ] Automatically compile the generated view diagrams using the D2 CLI.
 -   [ ] Watch mode to monitor changes in the source diagram and regenerate views automatically.

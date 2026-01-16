@@ -116,12 +116,63 @@ func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectId
 		}
 	}
 
+	for _, edge := range graph.Edges {
+		src := getAbsoluteId(edge.Src)
+		dst := getAbsoluteId(edge.Dst)
+
+		if viewContainsObjectId(view, src) && viewContainsObjectId(view, dst) {
+			// Both source and destination are in the view, include the edge
+			builder.WriteString(getEdgeD2Representation(edge))
+		}
+	}
+
 	return viewReplacementResult{
 		newContent:     builder.String(),
 		replacedRanges: replacedRanges,
 		insertByte:     insertByte,
 		indentation:    indentation,
 	}
+}
+
+// getEdgeD2Representation returns the D2 language representation of the given edge.
+func getEdgeD2Representation(edge *d2graph.Edge) string {
+	var builder strings.Builder
+	srcId := getAbsoluteId(edge.Src)
+	dstId := getAbsoluteId(edge.Dst)
+	builder.WriteString(fmt.Sprintf("%s ", srcId))
+
+	if edge.SrcArrow {
+		builder.WriteString("<")
+	}
+
+	if edge.DstArrow || edge.SrcArrow {
+		builder.WriteString("-")
+	} else {
+		// No arrows, use double dash for undirected edge
+		builder.WriteString("--")
+	}
+
+	if edge.DstArrow {
+		builder.WriteString(">")
+	}
+	builder.WriteString(fmt.Sprintf(" %s", dstId))
+
+	if edge.Label.Value != "" {
+		builder.WriteString(fmt.Sprintf(": \"%s\"", edge.Label.Value))
+	}
+
+	builder.WriteString("\n")
+	return builder.String()
+}
+
+// viewContainsObjectId checks if the given view contains an object with the specified absolute ID.
+func viewContainsObjectId(view *d2graph.Graph, objectId string) bool {
+	for _, obj := range view.Objects {
+		if getAbsoluteId(obj) == objectId {
+			return true
+		}
+	}
+	return false
 }
 
 // extendRangeToEndOfLine extends a range to the end of the line (newline character)

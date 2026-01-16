@@ -504,6 +504,7 @@ layers: {
     custom: "Custom Name" { #view
         first: "First Thing"
         second: "Second Thing"
+        first -> second
 
 
     }
@@ -512,6 +513,7 @@ layers: {
         # view
         first: "First Thing"
         second: "Second Thing"
+        first -> second
 
         second.something
     }
@@ -681,6 +683,463 @@ func makeOp(startByte, endByte int, replacement string) rangeOperation {
 	return rangeOperation{
 		r:           makeRange(startByte, endByte),
 		replacement: replacement,
+	}
+}
+
+func TestReplaceViewLayers_EdgeForwardArrow(t *testing.T) {
+	content := `a: "Entity A"
+b: "Entity B"
+
+a -> b
+
+layers: {
+    view1: { #view
+        a
+        b
+    }
+}
+`
+	reader := strings.NewReader(content)
+	graph, _, err := compileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	rootObjectIds := extractRootObjectIds(graph)
+
+	reader2 := strings.NewReader(content)
+	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
+	if err != nil {
+		t.Fatalf("replaceViewLayers failed: %v", err)
+	}
+
+	expected := `a: "Entity A"
+b: "Entity B"
+
+a -> b
+
+layers: {
+    view1: { #view
+        a: "Entity A"
+        b: "Entity B"
+        a -> b
+
+
+    }
+}
+`
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
+	}
+}
+
+func TestReplaceViewLayers_EdgeBackwardArrow(t *testing.T) {
+	content := `a: "Entity A"
+b: "Entity B"
+
+a <- b
+
+layers: {
+    view1: { #view
+        a
+        b
+    }
+}
+`
+	reader := strings.NewReader(content)
+	graph, _, err := compileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	rootObjectIds := extractRootObjectIds(graph)
+
+	reader2 := strings.NewReader(content)
+	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
+	if err != nil {
+		t.Fatalf("replaceViewLayers failed: %v", err)
+	}
+
+	expected := `a: "Entity A"
+b: "Entity B"
+
+a <- b
+
+layers: {
+    view1: { #view
+        a: "Entity A"
+        b: "Entity B"
+        a <- b
+
+
+    }
+}
+`
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
+	}
+}
+
+func TestReplaceViewLayers_EdgeBidirectionalArrow(t *testing.T) {
+	content := `a: "Entity A"
+b: "Entity B"
+
+a <-> b
+
+layers: {
+    view1: { #view
+        a
+        b
+    }
+}
+`
+	reader := strings.NewReader(content)
+	graph, _, err := compileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	rootObjectIds := extractRootObjectIds(graph)
+
+	reader2 := strings.NewReader(content)
+	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
+	if err != nil {
+		t.Fatalf("replaceViewLayers failed: %v", err)
+	}
+
+	expected := `a: "Entity A"
+b: "Entity B"
+
+a <-> b
+
+layers: {
+    view1: { #view
+        a: "Entity A"
+        b: "Entity B"
+        a <-> b
+
+
+    }
+}
+`
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
+	}
+}
+
+func TestReplaceViewLayers_EdgeNoArrows(t *testing.T) {
+	content := `a: "Entity A"
+b: "Entity B"
+
+a -- b
+
+layers: {
+    view1: { #view
+        a
+        b
+    }
+}
+`
+	reader := strings.NewReader(content)
+	graph, _, err := compileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	rootObjectIds := extractRootObjectIds(graph)
+
+	reader2 := strings.NewReader(content)
+	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
+	if err != nil {
+		t.Fatalf("replaceViewLayers failed: %v", err)
+	}
+
+	expected := `a: "Entity A"
+b: "Entity B"
+
+a -- b
+
+layers: {
+    view1: { #view
+        a: "Entity A"
+        b: "Entity B"
+        a -- b
+
+
+    }
+}
+`
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
+	}
+}
+
+func TestReplaceViewLayers_EdgeWithLabel(t *testing.T) {
+	content := `a: "Entity A"
+b: "Entity B"
+
+a -> b: "connection label"
+
+layers: {
+    view1: { #view
+        a
+        b
+    }
+}
+`
+	reader := strings.NewReader(content)
+	graph, _, err := compileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	rootObjectIds := extractRootObjectIds(graph)
+
+	reader2 := strings.NewReader(content)
+	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
+	if err != nil {
+		t.Fatalf("replaceViewLayers failed: %v", err)
+	}
+
+	expected := `a: "Entity A"
+b: "Entity B"
+
+a -> b: "connection label"
+
+layers: {
+    view1: { #view
+        a: "Entity A"
+        b: "Entity B"
+        a -> b: "connection label"
+
+
+    }
+}
+`
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
+	}
+}
+
+func TestReplaceViewLayers_EdgeNotIncludedWhenOneEndMissing(t *testing.T) {
+	content := `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+a -> b
+b -> c
+
+layers: {
+    view1: { #view
+        a
+        c
+    }
+}
+`
+	reader := strings.NewReader(content)
+	graph, _, err := compileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	rootObjectIds := extractRootObjectIds(graph)
+
+	reader2 := strings.NewReader(content)
+	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
+	if err != nil {
+		t.Fatalf("replaceViewLayers failed: %v", err)
+	}
+
+	// Neither a->b nor b->c should be included since b is not in the view
+	expected := `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+a -> b
+b -> c
+
+layers: {
+    view1: { #view
+        a: "Entity A"
+        c: "Entity C"
+
+
+    }
+}
+`
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
+	}
+}
+
+func TestReplaceViewLayers_MultipleEdgesBetweenSameEntities(t *testing.T) {
+	content := `a: "Entity A"
+b: "Entity B"
+
+a -> b: "first"
+a -> b: "second"
+a <- b: "third"
+
+layers: {
+    view1: { #view
+        a
+        b
+    }
+}
+`
+	reader := strings.NewReader(content)
+	graph, _, err := compileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	rootObjectIds := extractRootObjectIds(graph)
+
+	reader2 := strings.NewReader(content)
+	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
+	if err != nil {
+		t.Fatalf("replaceViewLayers failed: %v", err)
+	}
+
+	expected := `a: "Entity A"
+b: "Entity B"
+
+a -> b: "first"
+a -> b: "second"
+a <- b: "third"
+
+layers: {
+    view1: { #view
+        a: "Entity A"
+        b: "Entity B"
+        a -> b: "first"
+        a -> b: "second"
+        a <- b: "third"
+
+
+    }
+}
+`
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
+	}
+}
+
+func TestReplaceViewLayers_EdgeWithNestedEntities(t *testing.T) {
+	content := `parent: {
+    child1: "Child 1"
+    child2: "Child 2"
+}
+
+parent.child1 -> parent.child2
+
+layers: {
+    view1: { #view
+        parent.child1
+        parent.child2
+    }
+}
+`
+	reader := strings.NewReader(content)
+	graph, _, err := compileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	rootObjectIds := extractRootObjectIds(graph)
+
+	reader2 := strings.NewReader(content)
+	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
+	if err != nil {
+		t.Fatalf("replaceViewLayers failed: %v", err)
+	}
+
+	expected := `parent: {
+    child1: "Child 1"
+    child2: "Child 2"
+}
+
+parent.child1 -> parent.child2
+
+layers: {
+    view1: { #view
+        parent
+        parent.child1: "Child 1"
+        parent.child2: "Child 2"
+        parent.child1 -> parent.child2
+
+
+    }
+}
+`
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
+	}
+}
+
+func TestReplaceViewLayers_MixedEdgeDirections(t *testing.T) {
+	content := `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+d: "Entity D"
+
+a -> b
+b <- c
+c <-> d
+a -- d
+
+layers: {
+    view1: { #view
+        a
+        b
+        c
+        d
+    }
+}
+`
+	reader := strings.NewReader(content)
+	graph, _, err := compileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	rootObjectIds := extractRootObjectIds(graph)
+
+	reader2 := strings.NewReader(content)
+	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
+	if err != nil {
+		t.Fatalf("replaceViewLayers failed: %v", err)
+	}
+
+	expected := `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+d: "Entity D"
+
+a -> b
+b <- c
+c <-> d
+a -- d
+
+layers: {
+    view1: { #view
+        a: "Entity A"
+        b: "Entity B"
+        c: "Entity C"
+        d: "Entity D"
+        a -> b
+        b <- c
+        c <-> d
+        a -- d
+
+
+
+
+    }
+}
+`
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
 }
 
