@@ -68,8 +68,7 @@ type viewReplacementResult struct {
 // source is the original D2 source content (used to find line endings)
 func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectIds []string, source string) viewReplacementResult {
 	var builder strings.Builder
-	processedIds := make(map[string]bool)
-	replacedRanges := make([]d2ast.Range, 0, len(processedIds))
+	replacedRanges := make([]d2ast.Range, 0)
 
 	// insertByte tracks the start of the line containing the earliest reference
 	// This is where the new view content will be inserted
@@ -79,12 +78,8 @@ func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectId
 
 	for _, object := range view.Objects {
 		objectId := getAbsoluteId(object)
-		if processedIds[objectId] {
-			continue
-		}
 		if slices.Contains(rootObjectIds, objectId) {
 			builder.WriteString(getObjectD2Representation(object, graph))
-			processedIds[objectId] = true
 			for _, reference := range object.References {
 				// Track the earliest line start position for insertion
 				lineStart := findLineStart(source, reference.Key.Range.Start.Byte)
