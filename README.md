@@ -1,14 +1,10 @@
 # d2lang-views
 
-A generator built on top of https://d2lang.com/ to allow showing sub-views of existing diagrams.
+A generator built on top of https://d2lang.com/ to create sub-views of larger diagrams.
 
-It scans a D2 diagram file for `layers` that are marked with a special comment `#view`. These view layers may reference entities from the main diagram or other layers, in addition to defining new entities and relationships specific to that view. This referencing is not supported natively by D2 at this time.
-
-Any referenced entities and the relationships between them are automatically included in the generated view diagram, allowing for focused visualizations of specific parts of a larger diagram.
+D2 doesn't natively support referencing entities from the base diagram in layers. This tool fixes that by allowing you to mark layers with `#view` and reference base entities by name. The tool automatically expands references to include full entity definitions with labels and relationships.
 
 ## Installation
-
-Ensure you have Go installed, then run:
 
 ```bash
 go install github.com/matt-winfield/d2lang-views@latest
@@ -20,67 +16,140 @@ go install github.com/matt-winfield/d2lang-views@latest
 d2lang-views ./path/to/diagram.d2 output/directory
 ```
 
-This will generate separate D2 files in the specified output directory for each view layer found in the input diagram file. Each generated file will contain the necessary entities and relationships to render the view correctly.
+Generates `<filename>-with-views.d2` with expanded view layers.
 
-## Example
+## How It Works
 
-Given a D2 diagram file `diagram.d2` with the following content:
+Mark a layer with `#view` comment, then reference entities from the base diagram:
 
+**Input:**
 ```d2
-first: "First Entity" {
-    second: "Second Entity"
-    third: "Third Entity"
-    fourth: "Fourth Entity"
-    second -> fourth
-    third -> fourth
-}
-fifth: "Fifth Entity"
-forth -> fifth
+client: "Web Client"
+server: "API Server"
+database: "PostgreSQL"
+cache: "Redis"
+
+client -> server
+server -> database
+server -> cache
 
 layers: {
-    view1: { #view
-        second
-        fourth
-        fifth
-
-        AnotherEntity -> SomethingElse
+    frontend: { #view
+        client
+        server
     }
-    view2: "Custom View Name" { #view
-        second -> third
+}
+```
+
+**Output:**
+```d2
+layers: {
+    frontend: { #view
+        client: "Web Client"
+        server: "API Server"
+        client -> server
+    }
+}
+```
+
+The tool:
+- Expands entity references to include their labels
+- Automatically includes parent entities for nested references
+- Copies relationships where both endpoints are in the view
+
+## Examples
+
+### Nested Entities
+
+```d2
+system: {
+    api: "API Gateway"
+    auth: "Auth Service"
+}
+
+system.api -> system.auth
+
+layers: {
+    auth_view: { #view
+        system.api
+        system.auth
+    }
+}
+```
+
+Generates:
+```d2
+layers: {
+    auth_view: { #view
+        system
+        system.api: "API Gateway"
+        system.auth: "Auth Service"
+        system.api -> system.auth
+    }
+}
+```
+
+### Multiple Views
+
+```d2
+frontend: "React App"
+backend: "Node.js"
+db: "MongoDB"
+
+frontend -> backend
+backend -> db
+
+layers: {
+    ui: { #view
+        frontend
+        backend
+    }
+    data: { #view
+        backend
+        db
+    }
+}
+```
+
+### Mixed Content
+
+Views can reference base entities and define new ones:
+
+```d2
+prod_db: "Production DB"
+prod_api: "Production API"
+
+prod_api -> prod_db
+
+layers: {
+    deployment: { #view
+        prod_api
+        prod_db
+
+        dev_env: "Development"
+        dev_env -> prod_api: "mirrors"
     }
 }
 ```
 
 ## Features
 
--   [x] Parse D2 diagrams to identify view layers marked with `#view`.
--   [x] Extract entities explicitly defined in the base layer
--   [x] Extract implicitly defined entities from relationships in the base layer.
--   [x] Identify referenced entities from the base layer within each view layer.
--   [x] Generate a new D2 diagram file, copying the necessary entities into the view layer.
--   [x] Copy the relevant relationships between the referenced entities into the view layer.
--   [ ] Support `# include classes.<class-name` to include entities of a specific class in the view.
--   [ ] Automatically compile the generated view diagrams using the D2 CLI.
--   [ ] Watch mode to monitor changes in the source diagram and regenerate views automatically.
+- Automatic entity expansion with labels
+- Relationship copying between referenced entities
+- Support for nested entities
+- Support for all arrow types (`->`, `<-`, `<->`, `--`)
+- Custom view layer names
+- Mix referenced and new entities in views
 
 ## Development
 
-To build the project locally, clone the repository and run:
-
 ```bash
+# Build
 go build
-```
 
-To run the project without building, use:
-
-```bash
+# Run without building
 go run . ./path/to/diagram.d2 output/directory
-```
 
-### Testing
-
-Tests can be run using:
-
-```bash
+# Test
 go test ./...
 ```
