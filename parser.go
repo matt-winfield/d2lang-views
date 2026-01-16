@@ -6,22 +6,28 @@ import (
 	"strings"
 
 	"oss.terrastruct.com/d2/d2ast"
-	"oss.terrastruct.com/d2/d2parser"
+	"oss.terrastruct.com/d2/d2compiler"
+	"oss.terrastruct.com/d2/d2graph"
+	"oss.terrastruct.com/d2/d2target"
 )
 
-// parseD2 reads from the provided io.Reader and returns the parsed D2 map.
+// compileD2 reads from the provided io.Reader and returns the compiled D2 map.
 //
 // path is the file path used for error reporting
 // reader is the input source containing D2 content
-func parseD2(path string, reader io.Reader) (*d2ast.Map, error) {
-	opts := &d2parser.ParseOptions{}
-	return d2parser.Parse(path, reader, opts)
+func compileD2(path string, reader io.Reader) (*d2graph.Graph, *d2target.Config, error) {
+	compileOpts := &d2compiler.CompileOptions{}
+	return d2compiler.Compile(path, reader, compileOpts)
 }
 
 // getViewsNodes extracts and returns all view nodes from the given D2 map.
-func getViewsNodes(d2map *d2ast.Map) []d2ast.MapNodeBox {
+func getViewsNodes(d2graph *d2graph.Graph) []d2ast.MapNodeBox {
+	if d2graph == nil || d2graph.AST == nil {
+		return []d2ast.MapNodeBox{}
+	}
+
 	var views []d2ast.MapNodeBox
-	layersNode := getLayersNode(d2map)
+	layersNode := getLayersNode(d2graph)
 
 	if layersNode == nil || layersNode.MapKey == nil || layersNode.MapKey.Value.Map == nil {
 		return views
@@ -77,8 +83,8 @@ func getNodeDisplayName(node d2ast.MapNodeBox) string {
 }
 
 // getLayersNode extracts and returns the layers node from the given D2 map.
-func getLayersNode(d2map *d2ast.Map) *d2ast.MapNodeBox {
-	for _, node := range d2map.Nodes {
+func getLayersNode(d2graph *d2graph.Graph) *d2ast.MapNodeBox {
+	for _, node := range d2graph.AST.Nodes {
 		if mapKeyHasId(node, "layers") {
 			return &node
 		}
@@ -95,23 +101,13 @@ func mapKeyHasId(node d2ast.MapNodeBox, key string) bool {
 	return node.MapKey.Key.StringIDA()[0] == key
 }
 
-// extractBaseLayerEntities extracts the entity IDs from the base layer of the D2 map.
+// extractRootObjects extracts the entity IDs from the base layer of the D2 map.
 // The retuned ID of an entity includes all parents separated by dots.
-func extractBaseLayerEntities(d2map *d2ast.Map) []string {
+func extractRootObjects(d2graph *d2graph.Graph) []string {
 	var entities = make(map[string]struct{})
 
-	for _, node := range d2map.Nodes {
-		if mapKeyHasId(node, "layers") {
-			continue
-		}
-		if mapKeyHasId(node, "scenarios") {
-			continue
-		}
-		if mapKeyHasId(node, "steps") {
-			continue
-		}
-
-		extractMapNodeEntities(&node, "", &entities)
+	for _, child := range d2graph.Root.ChildrenArray {
+		extractObjectIds(child, "", entities)
 	}
 
 	var entityList []string
@@ -122,33 +118,22 @@ func extractBaseLayerEntities(d2map *d2ast.Map) []string {
 	return entityList
 }
 
-// extractMapNodeEntities extracts the entity IDs from the given D2 map node.
-//
-// The retuned ID of an entity includes all parents separated by dots.
-//
-// prefix is the parent ID prefix for nested entities.
-//
-// entities is a pointer to a map used to collect unique entity IDs.
-func extractMapNodeEntities(node *d2ast.MapNodeBox, prefix string, entities *map[string]struct{}) {
-	if len(prefix) > 0 {
+// extractObjectIds is a helper function that recursively traverses the D2 graph nodes
+// to extract entity IDs, prefixing them with their parent IDs.
+// entities is a map used to collect unique entity IDs.
+func extractObjectIds(node *d2graph.Object, prefix string, entities map[string]struct{}) {
+	if node == nil {
+		return
+	}
+
+	if prefix != "" {
 		prefix = prefix + "."
 	}
 
-	if node.MapKey != nil && node.MapKey.Key != nil {
-		// IDA is the identifier array
-		// e.g., for an ID of "a.b.c", IDA is ["a", "b", "c"]
-		// We want to add "a", "a.b", and "a.b.c" to the entities set
-		ida := node.MapKey.Key.StringIDA()
-		for i := range ida {
-			id := prefix + strings.Join(ida[:i+1], ".")
-			(*entities)[id] = struct{}{}
-		}
+	currentId := prefix + node.ID
+	entities[currentId] = struct{}{}
 
-		id := prefix + strings.Join(ida, ".")
-		if node.MapKey != nil && node.MapKey.Value.Map != nil {
-			for _, child := range node.MapKey.Value.Map.Nodes {
-				extractMapNodeEntities(&child, id, entities)
-			}
-		}
+	for _, child := range node.ChildrenArray {
+		extractObjectIds(child, currentId, entities)
 	}
 }

@@ -31,22 +31,21 @@ func main() {
 	checkErr(err, "Unable to create destination directory")
 
 	reader := bytes.NewReader(content)
-	ast, err := parseD2(args.Source, reader)
+	graph, _, err := compileD2(args.Source, reader)
+	checkErr(err, "Unable to compile D2 content")
 
-	checkErr(err, "Unable to parse D2 content")
-
-	json, err := json.MarshalIndent(ast, "", "  ")
+	graphJson, err := json.MarshalIndent(graph, "", "  ")
 	checkErr(err, "Unable to marshal AST to JSON")
 
-	outputPath := astOutputPath(args.Source, args.Destination)
-	err = os.WriteFile(outputPath, json, 0644)
+	graphOutputPath := getOutputFilePath(args.Source, args.Destination, "-graph.json")
+	err = os.WriteFile(graphOutputPath, graphJson, 0644)
 	checkErr(err, "Unable to write output file")
 
-	layers := getViewsNodes(ast)
+	layers := getViewsNodes(graph)
 
 	fmt.Printf("Found %d view nodes\n", len(layers))
 
-	color.Green("Successfully wrote output to %s", outputPath)
+	color.Green("Successfully wrote output to %s", graphOutputPath)
 }
 
 // ensureDirExists checks if a directory exists at the given path,
@@ -74,10 +73,10 @@ func checkErr(err error, msg string) {
 	}
 }
 
-// astOutputPath constructs the output file path for the AST JSON
+// getOutputFilePath constructs the output file path for the AST JSON
 // based on the source file name and destination directory.
-// It appends "-ast.json" to the source file name after stripping the directory path and file extension.
-func astOutputPath(sourcePath, destinationDir string) string {
+// It appends extension to the source file name after stripping the directory path and file extension.
+func getOutputFilePath(sourcePath, destinationDir string, extension string) string {
 	baseName := sourcePath
 	if idx := len(sourcePath) - 1; idx >= 0 {
 		for i := idx; i >= 0; i-- {
@@ -97,5 +96,5 @@ func astOutputPath(sourcePath, destinationDir string) string {
 		}
 	}
 
-	return destinationDir + "/" + baseName + "-ast.json"
+	return destinationDir + "/" + baseName + extension
 }

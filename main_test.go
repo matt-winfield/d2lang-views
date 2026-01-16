@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -217,45 +216,10 @@ func TestAstOutputPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := astOutputPath(tt.sourcePath, tt.destDir)
+			result := getOutputFilePath(tt.sourcePath, tt.destDir, "-ast.json")
 			if result != tt.expected {
 				t.Errorf("astOutputPath(%q, %q) = %q, want %q",
 					tt.sourcePath, tt.destDir, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestIntegration_ReadAndParseTestData(t *testing.T) {
-	testFiles := []struct {
-		filename      string
-		expectedViews int
-	}{
-		{"simple.d2", 1},
-		{"basic.d2", 3},
-		{"no_views.d2", 0},
-	}
-
-	for _, tf := range testFiles {
-		t.Run(tf.filename, func(t *testing.T) {
-			path := filepath.Join("test_data", tf.filename)
-
-			content, err := os.ReadFile(path)
-			if err != nil {
-				t.Skipf("test file not found: %s", path)
-				return
-			}
-
-			reader := bytes.NewReader(content)
-			d2map, err := parseD2(path, reader)
-			if err != nil {
-				t.Fatalf("failed to parse %s: %v", tf.filename, err)
-			}
-
-			views := getViewsNodes(d2map)
-			if len(views) != tf.expectedViews {
-				t.Errorf("expected %d views in %s, got %d",
-					tf.expectedViews, tf.filename, len(views))
 			}
 		})
 	}

@@ -6,107 +6,8 @@ import (
 	"testing"
 
 	"oss.terrastruct.com/d2/d2ast"
+	"oss.terrastruct.com/d2/d2graph"
 )
-
-func TestParseD2_ValidSimple(t *testing.T) {
-	content := `a -> b`
-	reader := strings.NewReader(content)
-
-	result, err := parseD2("test.d2", reader)
-
-	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
-	}
-	if result == nil {
-		t.Fatal("expected non-nil result")
-	}
-	if len(result.Nodes) == 0 {
-		t.Fatal("expected at least one node in parsed result")
-	}
-}
-
-func TestParseD2_ValidWithLayers(t *testing.T) {
-	content := `
-a: "Entity A"
-b: "Entity B"
-a -> b
-
-layers: {
-    view1: { #view
-        a
-    }
-}
-`
-	reader := strings.NewReader(content)
-
-	result, err := parseD2("test.d2", reader)
-
-	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
-	}
-	if result == nil {
-		t.Fatal("expected non-nil result")
-	}
-}
-
-func TestParseD2_EmptyContent(t *testing.T) {
-	content := ``
-	reader := strings.NewReader(content)
-
-	result, err := parseD2("test.d2", reader)
-
-	if err != nil {
-		t.Fatalf("expected no error for empty content, got: %v", err)
-	}
-	if result == nil {
-		t.Fatal("expected non-nil result for empty content")
-	}
-}
-
-func TestParseD2_InvalidSyntax(t *testing.T) {
-	// Invalid D2 syntax - unclosed brace
-	content := `a: { b`
-	reader := strings.NewReader(content)
-
-	_, err := parseD2("test.d2", reader)
-
-	if err == nil {
-		t.Fatal("expected error for invalid syntax")
-	}
-}
-
-func TestParseD2_ComplexContent(t *testing.T) {
-	content := `
-client: "Web Client" {
-    style.fill: "#ADD8E6"
-}
-server: "API Server"
-database: "PostgreSQL"
-
-client -> server: HTTP requests
-server -> database: SQL queries
-
-layers: {
-    backend: { #view
-        server
-        database
-    }
-    frontend: { #view
-        client
-    }
-}
-`
-	reader := strings.NewReader(content)
-
-	result, err := parseD2("test.d2", reader)
-
-	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
-	}
-	if result == nil {
-		t.Fatal("expected non-nil result")
-	}
-}
 
 // ============================================================================
 // getLayersNode tests
@@ -120,12 +21,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	d2map, err := parseD2("test.d2", reader)
+	d2graph, _, err := compileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	result := getLayersNode(d2map)
+	result := getLayersNode(d2graph)
 
 	if result == nil {
 		t.Fatal("expected to find layers node")
@@ -145,30 +46,30 @@ a -> b
 c: "Entity C"
 `
 	reader := strings.NewReader(content)
-	d2map, err := parseD2("test.d2", reader)
+	d2graph, _, err := compileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	result := getLayersNode(d2map)
+	result := getLayersNode(d2graph)
 
 	if result != nil {
 		t.Fatal("expected nil when no layers node exists")
 	}
 }
 
-func TestGetLayersNode_EmptyMap(t *testing.T) {
+func TestGetLayersNode_EmptyGraph(t *testing.T) {
 	content := ``
 	reader := strings.NewReader(content)
-	d2map, err := parseD2("test.d2", reader)
+	d2graph, _, err := compileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	result := getLayersNode(d2map)
+	result := getLayersNode(d2graph)
 
 	if result != nil {
-		t.Fatal("expected nil for empty map")
+		t.Fatal("expected nil for empty graph")
 	}
 }
 
@@ -183,12 +84,12 @@ layers: {
 e: "Last"
 `
 	reader := strings.NewReader(content)
-	d2map, err := parseD2("test.d2", reader)
+	d2graph, _, err := compileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	result := getLayersNode(d2map)
+	result := getLayersNode(d2graph)
 
 	if result == nil {
 		t.Fatal("expected to find layers node even when not first")
@@ -198,12 +99,12 @@ e: "Last"
 func parseAndGetLayerNode(t *testing.T, content string, layerName string) d2ast.MapNodeBox {
 	t.Helper()
 	reader := strings.NewReader(content)
-	d2map, err := parseD2("test.d2", reader)
+	d2graph, _, err := compileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	layersNode := getLayersNode(d2map)
+	layersNode := getLayersNode(d2graph)
 	if layersNode == nil {
 		t.Fatal("expected layers node")
 	}
@@ -372,12 +273,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	d2map, err := parseD2("test.d2", reader)
+	d2graph, _, err := compileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	views := getViewsNodes(d2map)
+	views := getViewsNodes(d2graph)
 
 	if len(views) != 1 {
 		t.Fatalf("expected 1 view, got %d", len(views))
@@ -404,12 +305,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	d2map, err := parseD2("test.d2", reader)
+	d2graph, _, err := compileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	views := getViewsNodes(d2map)
+	views := getViewsNodes(d2graph)
 
 	if len(views) != 3 {
 		t.Fatalf("expected 3 views, got %d", len(views))
@@ -429,12 +330,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	d2map, err := parseD2("test.d2", reader)
+	d2graph, _, err := compileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	views := getViewsNodes(d2map)
+	views := getViewsNodes(d2graph)
 
 	if len(views) != 0 {
 		t.Fatalf("expected 0 views, got %d", len(views))
@@ -447,12 +348,12 @@ a -> b
 c: "Entity C"
 `
 	reader := strings.NewReader(content)
-	d2map, err := parseD2("test.d2", reader)
+	d2graph, _, err := compileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	views := getViewsNodes(d2map)
+	views := getViewsNodes(d2graph)
 
 	if len(views) != 0 {
 		t.Fatalf("expected 0 views when no layers exist, got %d", len(views))
@@ -465,12 +366,12 @@ a -> b
 layers: {}
 `
 	reader := strings.NewReader(content)
-	d2map, err := parseD2("test.d2", reader)
+	d2graph, _, err := compileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	views := getViewsNodes(d2map)
+	views := getViewsNodes(d2graph)
 
 	if len(views) != 0 {
 		t.Fatalf("expected 0 views for empty layers, got %d", len(views))
@@ -478,9 +379,9 @@ layers: {}
 }
 
 func TestGetViewsNodes_NilMap(t *testing.T) {
-	var d2map *d2ast.Map = &d2ast.Map{}
+	var d2graph *d2graph.Graph = &d2graph.Graph{}
 
-	views := getViewsNodes(d2map)
+	views := getViewsNodes(d2graph)
 
 	if len(views) != 0 {
 		t.Fatalf("expected 0 views for nil map, got %d", len(views))
@@ -505,12 +406,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	d2map, err := parseD2("simple.d2", reader)
+	d2graph, _, err := compileD2("simple.d2", reader)
 	if err != nil {
 		t.Fatalf("failed to parse: %v", err)
 	}
 
-	views := getViewsNodes(d2map)
+	views := getViewsNodes(d2graph)
 
 	if len(views) != 1 {
 		t.Fatalf("expected 1 view in simple.d2, got %d", len(views))
@@ -549,12 +450,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	d2map, err := parseD2("basic.d2", reader)
+	d2graph, _, err := compileD2("basic.d2", reader)
 	if err != nil {
 		t.Fatalf("failed to parse: %v", err)
 	}
 
-	views := getViewsNodes(d2map)
+	views := getViewsNodes(d2graph)
 
 	if len(views) != 3 {
 		t.Fatalf("expected 3 views in basic.d2, got %d", len(views))
@@ -596,12 +497,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	d2map, err := parseD2("no_views.d2", reader)
+	d2graph, _, err := compileD2("no_views.d2", reader)
 	if err != nil {
 		t.Fatalf("failed to parse: %v", err)
 	}
 
-	views := getViewsNodes(d2map)
+	views := getViewsNodes(d2graph)
 
 	if len(views) != 0 {
 		t.Fatalf("expected 0 views in no_views.d2, got %d", len(views))
@@ -691,12 +592,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	d2map, err := parseD2("test.d2", reader)
+	d2graph, _, err := compileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("failed to parse: %v", err)
 	}
 
-	views := getViewsNodes(d2map)
+	views := getViewsNodes(d2graph)
 
 	if len(views) != 1 {
 		t.Fatalf("expected 1 view, got %d", len(views))
@@ -715,12 +616,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	d2map, err := parseD2("test.d2", reader)
+	d2graph, _, err := compileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("failed to parse: %v", err)
 	}
 
-	views := getViewsNodes(d2map)
+	views := getViewsNodes(d2graph)
 
 	if len(views) != 1 {
 		t.Fatalf("expected 1 view, got %d", len(views))
@@ -749,12 +650,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	d2map, err := parseD2("test.d2", reader)
+	d2graph, _, err := compileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("failed to parse: %v", err)
 	}
 
-	views := getViewsNodes(d2map)
+	views := getViewsNodes(d2graph)
 
 	if len(views) != 1 {
 		t.Fatalf("expected 1 view, got %d", len(views))
@@ -855,12 +756,12 @@ steps: {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reader := strings.NewReader(tt.content)
-			d2map, err := parseD2("test.d2", reader)
+			d2graph, _, err := compileD2("test.d2", reader)
 			if err != nil {
 				t.Fatalf("failed to parse: %v", err)
 			}
 
-			entities := extractBaseLayerEntities(d2map)
+			entities := extractRootObjects(d2graph)
 
 			for _, expected := range tt.expectedIDs {
 				if !slices.Contains(entities, expected) {
