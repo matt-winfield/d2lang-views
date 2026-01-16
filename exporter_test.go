@@ -195,7 +195,7 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "a: {\n    b: \"Nested B\"\n}\nc: \"Entity C\"\n\nlayers: {\n    view1: { #view\n        a.b: \"Nested B\"\n        c: \"Entity C\"\n\n\n    }\n}\n"
+	expected := "a: {\n    b: \"Nested B\"\n}\nc: \"Entity C\"\n\nlayers: {\n    view1: { #view\n        a\n        a.b: \"Nested B\"\n        c: \"Entity C\"\n\n\n    }\n}\n"
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
@@ -357,7 +357,7 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "a: {\n    b: {\n        c: {\n            d: \"Deep\"\n        }\n    }\n}\n\nlayers: {\n    view1: { #view\n        a.b.c.d: \"Deep\"\n\n    }\n}\n"
+	expected := "a: {\n    b: {\n        c: {\n            d: \"Deep\"\n        }\n    }\n}\n\nlayers: {\n    view1: { #view\n        a\n        a.b\n        a.b.c\n        a.b.c.d: \"Deep\"\n\n    }\n}\n"
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
@@ -455,6 +455,7 @@ layers: {
 
 func TestReplaceViewLayers_MultipleViewsAndEdgesAndNonViewLayers(t *testing.T) {
 	content := `first: "First Thing"
+second: "Second Thing"
 first -> second
 third
 
@@ -495,13 +496,14 @@ layers: {
 
 	// All content is inserted with proper indentation, unprocessed references remain unchanged
 	expected := `first: "First Thing"
+second: "Second Thing"
 first -> second
 third
 
 layers: {
     custom: "Custom Name" { #view
         first: "First Thing"
-        second
+        second: "Second Thing"
 
 
     }
@@ -509,6 +511,7 @@ layers: {
     view2 {
         # view
         first: "First Thing"
+        second: "Second Thing"
 
         second.something
     }
@@ -659,7 +662,7 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "a: {\n    x: \"X in A\"\n}\nb: {\n    x: \"X in B\"\n}\n\nlayers: {\n    view1: { #view\n        a.x: \"X in A\"\n        b.x: \"X in B\"\n\n\n    }\n}\n"
+	expected := "a: {\n    x: \"X in A\"\n}\nb: {\n    x: \"X in B\"\n}\n\nlayers: {\n    view1: { #view\n        a\n        a.x: \"X in A\"\n        b\n        b.x: \"X in B\"\n\n\n    }\n}\n"
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}

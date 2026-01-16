@@ -78,10 +78,6 @@ func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectId
 	indentation := ""
 
 	for _, object := range view.Objects {
-		// Skip container objects that have children - only include leaf nodes
-		if len(object.ChildrenArray) > 0 {
-			continue
-		}
 		objectId := getAbsoluteId(object)
 		if processedIds[objectId] {
 			continue
@@ -99,6 +95,22 @@ func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectId
 				}
 
 				if reference.InEdge() {
+					continue
+				}
+
+				referenceContainsNonRootObject := false
+				ida := reference.Key.StringIDA()
+				for i := range ida {
+					objectId := strings.Join(ida[:i+1], ".")
+					if !slices.Contains(rootObjectIds, objectId) {
+						referenceContainsNonRootObject = true
+						break
+					}
+				}
+
+				// Skip references that include non-root objects
+				// Since those define new objects implicitly
+				if referenceContainsNonRootObject {
 					continue
 				}
 
