@@ -23,6 +23,7 @@ Generates `<filename>-with-views.d2` with expanded view layers.
 Mark a layer with `#view` comment, then reference entities from the base diagram:
 
 **Input:**
+
 ```d2
 client: "Web Client"
 server: "API Server"
@@ -42,6 +43,7 @@ layers: {
 ```
 
 **Output:**
+
 ```d2
 layers: {
     frontend: { #view
@@ -53,9 +55,10 @@ layers: {
 ```
 
 The tool:
-- Expands entity references to include their labels
-- Automatically includes parent entities for nested references
-- Copies relationships where both endpoints are in the view
+
+-   Expands entity references to include their labels
+-   Automatically includes parent entities for nested references
+-   Copies relationships where both endpoints are in the view
 
 ## Examples
 
@@ -78,6 +81,7 @@ layers: {
 ```
 
 Generates:
+
 ```d2
 layers: {
     auth_view: { #view
@@ -134,12 +138,19 @@ layers: {
 
 ## Features
 
-- Automatic entity expansion with labels
-- Relationship copying between referenced entities
-- Support for nested entities
-- Support for all arrow types (`->`, `<-`, `<->`, `--`)
-- Custom view layer names
-- Mix referenced and new entities in views
+-   Automatic entity expansion with labels
+-   Relationship copying between referenced entities
+-   Support for nested entities
+-   Custom view layer names
+-   Mix referenced and new entities in views
+
+## Roadmap
+
+-   [ ] Bring in other properties of entities (styles, classes, etc) from the base diagram.
+-   [ ] Allow including nested children without the parent (e.g. include `parent.child` without `parent`).
+-   [ ] Support `# include classes.<class-name` to include entities of a specific class in the view.
+-   [ ] Automatically compile the generated view diagrams using the D2 CLI.
+-   [ ] Watch mode to monitor changes in the source diagram and regenerate views automatically.
 
 ## Development
 
