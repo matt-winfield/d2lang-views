@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"oss.terrastruct.com/d2/d2ast"
 )
 
@@ -45,8 +46,8 @@ layers: {
     }
 }
 `
-	if result != expected {
-		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
 }
 
@@ -79,9 +80,9 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "a: \"Entity A\"\nb: \"Entity B\"\nc: \"Entity C\"\n\nlayers: {\n    view1: { #view\n        a: \"Entity A\"\n\n    }\n    view2: { #view\n        b: \"Entity B\"\nc: \"Entity C\"\n\n        \n    }\n}\n"
-	if result != expected {
-		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
+	expected := "a: \"Entity A\"\nb: \"Entity B\"\nc: \"Entity C\"\n\nlayers: {\n    view1: { #view\n        a: \"Entity A\"\n\n    }\n    view2: { #view\n        b: \"Entity B\"\nc: \"Entity C\"\n\n\n    }\n}\n"
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
 }
 
@@ -110,8 +111,8 @@ layers: {
 	}
 
 	// No views means output should be identical to input
-	if result != content {
-		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", content, result)
+	if diff := cmp.Diff(content, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
 }
 
@@ -162,8 +163,8 @@ layers: {
 
 	// Full statement "a: Custom Label" is replaced with new content
 	expected := "a: \"Entity A\"\nb: \"Entity B\"\n\nlayers: {\n    view1: { #view\n        a: \"Custom Label\"\n\n    }\n}\n"
-	if result != expected {
-		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
 }
 
@@ -194,9 +195,9 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "a: {\n    b: \"Nested B\"\n}\nc: \"Entity C\"\n\nlayers: {\n    view1: { #view\n        a.b: \"Nested B\"\nc: \"Entity C\"\n\n        \n    }\n}\n"
-	if result != expected {
-		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
+	expected := "a: {\n    b: \"Nested B\"\n}\nc: \"Entity C\"\n\nlayers: {\n    view1: { #view\n        a.b: \"Nested B\"\nc: \"Entity C\"\n\n\n    }\n}\n"
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
 }
 
@@ -226,8 +227,8 @@ layers: {
 	}
 
 	expected := "x: \"X\"\ny: \"Y\"\n\nlayers: {\n    view1: {\n        # view\n        x: \"X\"\n\n    }\n}\n"
-	if result != expected {
-		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
 }
 
@@ -260,8 +261,8 @@ layers: {
 	}
 
 	expected := "# This is a comment\na: \"Entity A\"\nb: \"Entity B\"\n\n# Another comment\na -> b: connection\n\nlayers: {\n    view1: { #view\n        a: \"Entity A\"\n\n    }\n}\n"
-	if result != expected {
-		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
 }
 
@@ -291,8 +292,8 @@ layers: {
 
 	// Only 'a' should be included since 'missing' is not in root
 	expected := "a: \"Entity A\"\n\nlayers: {\n    view1: { #view\n        a: \"Entity A\"\n\n        missing\n    }\n}\n"
-	if result != expected {
-		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
 }
 
@@ -321,9 +322,9 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "server: \"API Server\"\ndatabase: \"PostgreSQL\"\n\nlayers: {\n    backend: \"Backend Architecture\" { #view\n        server: \"API Server\"\ndatabase: \"PostgreSQL\"\n\n        \n    }\n}\n"
-	if result != expected {
-		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
+	expected := "server: \"API Server\"\ndatabase: \"PostgreSQL\"\n\nlayers: {\n    backend: \"Backend Architecture\" { #view\n        server: \"API Server\"\ndatabase: \"PostgreSQL\"\n\n\n    }\n}\n"
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
 }
 
@@ -357,8 +358,8 @@ layers: {
 	}
 
 	expected := "a: {\n    b: {\n        c: {\n            d: \"Deep\"\n        }\n    }\n}\n\nlayers: {\n    view1: { #view\n        a.b.c.d: \"Deep\"\n\n    }\n}\n"
-	if result != expected {
-		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
 }
 
@@ -392,9 +393,63 @@ layers: {
 	}
 
 	// First entity is replaced with all content, other entities leave whitespace where removed
-	expected := "client: \"Web Client\"\nserver: \"API Server\"\ndatabase: \"PostgreSQL\"\ncache: \"Redis\"\n\nlayers: {\n    view1: { #view\n        client: \"Web Client\"\nserver: \"API Server\"\ndatabase: \"PostgreSQL\"\ncache: \"Redis\"\n\n        \n        \n        \n    }\n}\n"
+	expected := "client: \"Web Client\"\nserver: \"API Server\"\ndatabase: \"PostgreSQL\"\ncache: \"Redis\"\n\nlayers: {\n    view1: { #view\n        client: \"Web Client\"\nserver: \"API Server\"\ndatabase: \"PostgreSQL\"\ncache: \"Redis\"\n\n\n\n\n    }\n}\n"
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
+	}
+}
+
+func TestReplaceViewLayers_WithEdgesInView(t *testing.T) {
+	content := `client: "Web Client"
+server: "API Server"
+database: "PostgreSQL"
+cache: "Redis"
+
+layers: {
+    view1: { #view
+        client
+        server
+		database -> cache
+		database -> something-else
+    }
+}
+`
+	reader := strings.NewReader(content)
+	graph, _, err := compileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	rootObjectIds := extractRootObjectIds(graph)
+
+	reader2 := strings.NewReader(content)
+	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
+	if err != nil {
+		t.Fatalf("replaceViewLayers failed: %v", err)
+	}
+
+	// First entity is replaced with all content, other entities leave whitespace where removed
+	expected := `client: "Web Client"
+server: "API Server"
+database: "PostgreSQL"
+cache: "Redis"
+
+layers: {
+    view1: { #view
+        client: "Web Client"
+server: "API Server"
+database: "PostgreSQL"
+cache: "Redis"
+
+
+
+
+    }
+}
+`
 	if result != expected {
-		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
+		diff := cmp.Diff(expected, result)
+		t.Errorf("unexpected result.\nDiff (-expected +got):\n%s", diff)
 	}
 }
 
@@ -422,8 +477,8 @@ layers: {
 
 	// Empty view has no ranges to replace, so content is unchanged
 	expected := content
-	if result != expected {
-		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
 }
 
@@ -463,8 +518,8 @@ layers: {
 	}
 
 	expected := "a: \"Entity A\"\nb: \"Entity B\"\nc: \"Entity C\"\n\nlayers: {\n    view1: { #view\n        a: \"Entity A\"\n\n    }\n    layer1: {\n        b\n    }\n    view2: { #view\n        c: \"Entity C\"\n\n    }\n    layer2: {\n        a\n        b\n    }\n}\n"
-	if result != expected {
-		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
 }
 
@@ -493,9 +548,9 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "a\nb: \"Entity B\"\n\nlayers: {\n    view1: { #view\n        a\nb: \"Entity B\"\n\n        \n    }\n}\n"
-	if result != expected {
-		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
+	expected := "a\nb: \"Entity B\"\n\nlayers: {\n    view1: { #view\n        a\nb: \"Entity B\"\n\n\n    }\n}\n"
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
 }
 
@@ -528,9 +583,9 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "a: {\n    x: \"X in A\"\n}\nb: {\n    x: \"X in B\"\n}\n\nlayers: {\n    view1: { #view\n        a.x: \"X in A\"\nb.x: \"X in B\"\n\n        \n    }\n}\n"
-	if result != expected {
-		t.Errorf("unexpected result.\nexpected:\n%s\n\ngot:\n%s", expected, result)
+	expected := "a: {\n    x: \"X in A\"\n}\nb: {\n    x: \"X in B\"\n}\n\nlayers: {\n    view1: { #view\n        a.x: \"X in A\"\nb.x: \"X in B\"\n\n\n    }\n}\n"
+	if diff := cmp.Diff(expected, result); diff != "" {
+		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
 }
 

@@ -81,6 +81,10 @@ func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectId
 			builder.WriteString(getObjectD2Representation(object, graph))
 			processedIds[objectId] = true
 			for _, reference := range object.References {
+				// if reference.InEdge() {
+				// 	continue
+				// }
+
 				// Extend the range to the end of the line to capture the full statement
 				fullRange := extendRangeToEndOfLine(reference.Key.Range, source)
 				replacedRanges = append(replacedRanges, fullRange)
@@ -225,5 +229,19 @@ func applyRangeOperations(source string, ops []rangeOperation) string {
 		result = result[:start] + op.replacement + result[end:]
 	}
 
-	return result
+	return unindentEmptyLines(result)
+}
+
+// unindentEmptyLines removes leading indentation from all whitespace-only lines in the given string.
+func unindentEmptyLines(s string) string {
+	lines := strings.Split(s, "\n")
+	var newLines []string
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			newLines = append(newLines, "")
+			continue
+		}
+		newLines = append(newLines, line)
+	}
+	return strings.Join(newLines, "\n")
 }
