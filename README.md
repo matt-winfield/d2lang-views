@@ -6,6 +6,14 @@ It scans a D2 diagram file for `layers` that are marked with a special comment `
 
 Any referenced entities and the relationships between them are automatically included in the generated view diagram, allowing for focused visualizations of specific parts of a larger diagram.
 
+## Installation
+
+Ensure you have Go installed, then run:
+
+```bash
+go install github.com/matt-winfield/d2lang-views@latest
+```
+
 ## Usage
 
 ```bash
@@ -41,4 +49,35 @@ layers: {
         second -> third
     }
 }
+```
+
+## Features
+
+-   [x] Parse D2 diagrams to identify view layers marked with `#view`.
+-   [ ] Identify referenced entities from the base layer within each view layer.
+-   [ ] Generate a new D2 diagram file, copying the necessary entities and relationships into the view layer.
+-   [ ] Support `# include classes.<class-name` to include entities of a specific class in the view.
+-   [ ] Automatically compile the generated view diagrams using the D2 CLI.
+-   [ ] Watch mode to monitor changes in the source diagram and regenerate views automatically.
+
+## Development
+
+To build the project locally, clone the repository and run:
+
+```bash
+go build
+```
+
+To run the project without building, use:
+
+```bash
+go run . ./path/to/diagram.d2 output/directory
+```
+
+### Testing
+
+Tests can be run using:
+
+```bash
+go test ./...
 ```

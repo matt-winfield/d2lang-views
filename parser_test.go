@@ -1,0 +1,761 @@
+package main
+
+import (
+	"strings"
+	"testing"
+
+	"oss.terrastruct.com/d2/d2ast"
+)
+
+func TestParseD2_ValidSimple(t *testing.T) {
+	content := `a -> b`
+	reader := strings.NewReader(content)
+
+	result, err := parseD2("test.d2", reader)
+
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if len(result.Nodes) == 0 {
+		t.Fatal("expected at least one node in parsed result")
+	}
+}
+
+func TestParseD2_ValidWithLayers(t *testing.T) {
+	content := `
+a: "Entity A"
+b: "Entity B"
+a -> b
+
+layers: {
+    view1: { #view
+        a
+    }
+}
+`
+	reader := strings.NewReader(content)
+
+	result, err := parseD2("test.d2", reader)
+
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+}
+
+func TestParseD2_EmptyContent(t *testing.T) {
+	content := ``
+	reader := strings.NewReader(content)
+
+	result, err := parseD2("test.d2", reader)
+
+	if err != nil {
+		t.Fatalf("expected no error for empty content, got: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result for empty content")
+	}
+}
+
+func TestParseD2_InvalidSyntax(t *testing.T) {
+	// Invalid D2 syntax - unclosed brace
+	content := `a: { b`
+	reader := strings.NewReader(content)
+
+	_, err := parseD2("test.d2", reader)
+
+	if err == nil {
+		t.Fatal("expected error for invalid syntax")
+	}
+}
+
+func TestParseD2_ComplexContent(t *testing.T) {
+	content := `
+client: "Web Client" {
+    style.fill: "#ADD8E6"
+}
+server: "API Server"
+database: "PostgreSQL"
+
+client -> server: HTTP requests
+server -> database: SQL queries
+
+layers: {
+    backend: { #view
+        server
+        database
+    }
+    frontend: { #view
+        client
+    }
+}
+`
+	reader := strings.NewReader(content)
+
+	result, err := parseD2("test.d2", reader)
+
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+}
+
+// ============================================================================
+// getLayersNode tests
+// ============================================================================
+
+func TestGetLayersNode_Found(t *testing.T) {
+	content := `
+a -> b
+layers: {
+    view1: {}
+}
+`
+	reader := strings.NewReader(content)
+	d2map, err := parseD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	result := getLayersNode(d2map)
+
+	if result == nil {
+		t.Fatal("expected to find layers node")
+	}
+	if result.MapKey == nil || result.MapKey.Key == nil {
+		t.Fatal("expected layers node to have a key")
+	}
+	keyStr := result.MapKey.Key.StringIDA()[0]
+	if keyStr != "layers" {
+		t.Fatalf("expected key 'layers', got '%s'", keyStr)
+	}
+}
+
+func TestGetLayersNode_NotFound(t *testing.T) {
+	content := `
+a -> b
+c: "Entity C"
+`
+	reader := strings.NewReader(content)
+	d2map, err := parseD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	result := getLayersNode(d2map)
+
+	if result != nil {
+		t.Fatal("expected nil when no layers node exists")
+	}
+}
+
+func TestGetLayersNode_EmptyMap(t *testing.T) {
+	content := ``
+	reader := strings.NewReader(content)
+	d2map, err := parseD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	result := getLayersNode(d2map)
+
+	if result != nil {
+		t.Fatal("expected nil for empty map")
+	}
+}
+
+func TestGetLayersNode_LayersNotFirst(t *testing.T) {
+	content := `
+a: "First"
+b: "Second"
+c -> d
+layers: {
+    view1: {}
+}
+e: "Last"
+`
+	reader := strings.NewReader(content)
+	d2map, err := parseD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	result := getLayersNode(d2map)
+
+	if result == nil {
+		t.Fatal("expected to find layers node even when not first")
+	}
+}
+
+func parseAndGetLayerNode(t *testing.T, content string, layerName string) d2ast.MapNodeBox {
+	t.Helper()
+	reader := strings.NewReader(content)
+	d2map, err := parseD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	layersNode := getLayersNode(d2map)
+	if layersNode == nil {
+		t.Fatal("expected layers node")
+	}
+
+	for _, node := range layersNode.MapKey.Value.Map.Nodes {
+		if node.MapKey != nil && node.MapKey.Key != nil {
+			if node.MapKey.Key.StringIDA()[0] == layerName {
+				return node
+			}
+		}
+	}
+	t.Fatalf("layer '%s' not found", layerName)
+	return d2ast.MapNodeBox{}
+}
+
+func TestIsViewNode_WithViewComment(t *testing.T) {
+	content := `
+layers: {
+    myview: { #view
+        a
+    }
+}
+`
+	node := parseAndGetLayerNode(t, content, "myview")
+
+	if !isViewNode(node) {
+		t.Fatal("expected node with #view comment to be a view")
+	}
+}
+
+func TestIsViewNode_WithStandaloneViewComment(t *testing.T) {
+	content := `
+layers: {
+    myview: {
+        # view
+        a
+    }
+}
+`
+	node := parseAndGetLayerNode(t, content, "myview")
+
+	if !isViewNode(node) {
+		t.Fatal("expected node with standalone # view comment to be a view")
+	}
+}
+
+func TestIsViewNode_WithViewCommentWhitespace(t *testing.T) {
+	content := `
+layers: {
+    myview: {
+        #   view
+        a
+    }
+}
+`
+	node := parseAndGetLayerNode(t, content, "myview")
+
+	if !isViewNode(node) {
+		t.Fatal("expected node with whitespace in #view comment to be a view")
+	}
+}
+
+func TestIsViewNode_NotAView(t *testing.T) {
+	content := `
+layers: {
+    notaview: {
+        a
+        b
+    }
+}
+`
+	node := parseAndGetLayerNode(t, content, "notaview")
+
+	if isViewNode(node) {
+		t.Fatal("expected node without #view comment to not be a view")
+	}
+}
+
+func TestIsViewNode_DifferentComment(t *testing.T) {
+	content := `
+layers: {
+    someLayer: {
+        # this is a regular comment
+        a
+    }
+}
+`
+	node := parseAndGetLayerNode(t, content, "someLayer")
+
+	if isViewNode(node) {
+		t.Fatal("expected node with different comment to not be a view")
+	}
+}
+
+func TestIsViewNode_EmptyLayer(t *testing.T) {
+	content := `
+layers: {
+    emptyLayer: {}
+}
+`
+	node := parseAndGetLayerNode(t, content, "emptyLayer")
+
+	if isViewNode(node) {
+		t.Fatal("expected empty layer to not be a view")
+	}
+}
+
+func TestIsViewNode_NilMapKey(t *testing.T) {
+	node := d2ast.MapNodeBox{MapKey: nil}
+	if isViewNode(node) {
+		t.Fatal("expected nil MapKey to not be a view")
+	}
+}
+
+func TestGetNodeDisplayName_CustomName(t *testing.T) {
+	content := `
+layers: {
+    myview: "Custom Display Name" { #view
+        a
+    }
+}
+`
+	node := parseAndGetLayerNode(t, content, "myview")
+
+	name := getNodeDisplayName(node)
+
+	if name != "Custom Display Name" {
+		t.Fatalf("expected 'Custom Display Name', got '%s'", name)
+	}
+}
+
+func TestGetNodeDisplayName_FallbackToKey(t *testing.T) {
+	content := `
+layers: {
+    myview: { #view
+        a
+    }
+}
+`
+	node := parseAndGetLayerNode(t, content, "myview")
+
+	name := getNodeDisplayName(node)
+
+	if name != "myview" {
+		t.Fatalf("expected 'myview', got '%s'", name)
+	}
+}
+
+func TestGetNodeDisplayName_NilMapKey(t *testing.T) {
+	node := d2ast.MapNodeBox{MapKey: nil}
+
+	name := getNodeDisplayName(node)
+
+	if name != "" {
+		t.Fatalf("expected empty string for nil MapKey, got '%s'", name)
+	}
+}
+
+func TestGetViewsNodes_SingleView(t *testing.T) {
+	content := `
+a -> b
+layers: {
+    view1: { #view
+        a
+    }
+}
+`
+	reader := strings.NewReader(content)
+	d2map, err := parseD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	views := getViewsNodes(d2map)
+
+	if len(views) != 1 {
+		t.Fatalf("expected 1 view, got %d", len(views))
+	}
+}
+
+func TestGetViewsNodes_MultipleViews(t *testing.T) {
+	content := `
+a -> b
+layers: {
+    view1: { #view
+        a
+    }
+    view2: { #view
+        b
+    }
+    notview: {
+        a
+    }
+    view3: {
+        # view
+        a
+    }
+}
+`
+	reader := strings.NewReader(content)
+	d2map, err := parseD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	views := getViewsNodes(d2map)
+
+	if len(views) != 3 {
+		t.Fatalf("expected 3 views, got %d", len(views))
+	}
+}
+
+func TestGetViewsNodes_NoViews(t *testing.T) {
+	content := `
+a -> b
+layers: {
+    layer1: {
+        a
+    }
+    layer2: {
+        b
+    }
+}
+`
+	reader := strings.NewReader(content)
+	d2map, err := parseD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	views := getViewsNodes(d2map)
+
+	if len(views) != 0 {
+		t.Fatalf("expected 0 views, got %d", len(views))
+	}
+}
+
+func TestGetViewsNodes_NoLayers(t *testing.T) {
+	content := `
+a -> b
+c: "Entity C"
+`
+	reader := strings.NewReader(content)
+	d2map, err := parseD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	views := getViewsNodes(d2map)
+
+	if len(views) != 0 {
+		t.Fatalf("expected 0 views when no layers exist, got %d", len(views))
+	}
+}
+
+func TestGetViewsNodes_EmptyLayers(t *testing.T) {
+	content := `
+a -> b
+layers: {}
+`
+	reader := strings.NewReader(content)
+	d2map, err := parseD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	views := getViewsNodes(d2map)
+
+	if len(views) != 0 {
+		t.Fatalf("expected 0 views for empty layers, got %d", len(views))
+	}
+}
+
+func TestGetViewsNodes_NilMap(t *testing.T) {
+	var d2map *d2ast.Map = &d2ast.Map{}
+
+	views := getViewsNodes(d2map)
+
+	if len(views) != 0 {
+		t.Fatalf("expected 0 views for nil map, got %d", len(views))
+	}
+}
+
+func TestIntegration_SimpleFile(t *testing.T) {
+	content := `
+# Simple example with basic entities and one view
+client: "Web Client"
+server: "API Server"
+database: "PostgreSQL"
+
+client -> server: HTTP requests
+server -> database: SQL queries
+
+layers: {
+    backend: { #view
+        server
+        database
+    }
+}
+`
+	reader := strings.NewReader(content)
+	d2map, err := parseD2("simple.d2", reader)
+	if err != nil {
+		t.Fatalf("failed to parse: %v", err)
+	}
+
+	views := getViewsNodes(d2map)
+
+	if len(views) != 1 {
+		t.Fatalf("expected 1 view in simple.d2, got %d", len(views))
+	}
+
+	name := getNodeDisplayName(views[0])
+	if name != "backend" {
+		t.Fatalf("expected view name 'backend', got '%s'", name)
+	}
+}
+
+func TestIntegration_BasicFile(t *testing.T) {
+	content := `
+first -> second
+
+layers: {
+    custom: "Custom Name" { #view
+        first
+        second
+    }
+
+    view2 {
+        # view
+        first
+        second
+    }
+
+    not_a_view {
+        first
+        second
+    }
+
+    default: { #view
+        first -> SomethingElse
+    }
+}
+`
+	reader := strings.NewReader(content)
+	d2map, err := parseD2("basic.d2", reader)
+	if err != nil {
+		t.Fatalf("failed to parse: %v", err)
+	}
+
+	views := getViewsNodes(d2map)
+
+	if len(views) != 3 {
+		t.Fatalf("expected 3 views in basic.d2, got %d", len(views))
+	}
+
+	// Verify custom name is extracted
+	var foundCustomName bool
+	for _, view := range views {
+		name := getNodeDisplayName(view)
+		if name == "Custom Name" {
+			foundCustomName = true
+		}
+	}
+	if !foundCustomName {
+		t.Fatal("expected to find view with custom name 'Custom Name'")
+	}
+}
+
+func TestIntegration_NoViewsFile(t *testing.T) {
+	content := `
+# Example with no view layers - edge case for testing
+frontend: "React App"
+backend: "Node.js API"
+db: "MongoDB"
+
+frontend -> backend: REST API
+backend -> db: Mongoose
+
+# This file has layers but none are marked as views
+layers: {
+    production: {
+        frontend.style.fill: "#90EE90"
+        backend.style.fill: "#90EE90"
+    }
+    staging: {
+        frontend.style.fill: "#FFD700"
+        backend.style.fill: "#FFD700"
+    }
+}
+`
+	reader := strings.NewReader(content)
+	d2map, err := parseD2("no_views.d2", reader)
+	if err != nil {
+		t.Fatalf("failed to parse: %v", err)
+	}
+
+	views := getViewsNodes(d2map)
+
+	if len(views) != 0 {
+		t.Fatalf("expected 0 views in no_views.d2, got %d", len(views))
+	}
+}
+
+func TestEdgeCase_ViewCommentCaseSensitive(t *testing.T) {
+	// "VIEW" uppercase should not match
+	content := `
+layers: {
+    myview: {
+        # VIEW
+        a
+    }
+}
+`
+	node := parseAndGetLayerNode(t, content, "myview")
+
+	if isViewNode(node) {
+		t.Fatal("expected uppercase VIEW to not match (case sensitive)")
+	}
+}
+
+func TestEdgeCase_ViewCommentPartialMatch(t *testing.T) {
+	// "viewer" should not match "view"
+	content := `
+layers: {
+    myview: {
+        # viewer
+        a
+    }
+}
+`
+	node := parseAndGetLayerNode(t, content, "myview")
+
+	if isViewNode(node) {
+		t.Fatal("expected 'viewer' to not match 'view'")
+	}
+}
+
+func TestEdgeCase_ViewCommentWithPrefix(t *testing.T) {
+	// "myview" should not match "view"
+	content := `
+layers: {
+    myview: {
+        # myview
+        a
+    }
+}
+`
+	node := parseAndGetLayerNode(t, content, "myview")
+
+	if isViewNode(node) {
+		t.Fatal("expected 'myview' comment to not match 'view'")
+	}
+}
+
+func TestEdgeCase_MultipleComments(t *testing.T) {
+	// D2 parser may merge consecutive comments or handle them differently.
+	// Test that a view comment with content after it is detected.
+	content := `
+layers: {
+    myview: {
+        # view
+        a
+        # another comment after content
+    }
+}
+`
+	node := parseAndGetLayerNode(t, content, "myview")
+
+	if !isViewNode(node) {
+		t.Fatal("expected view to be detected when # view comment exists with other comments")
+	}
+}
+
+func TestEdgeCase_SpecialCharactersInEntityNames(t *testing.T) {
+	content := `
+"entity-with-dashes": "Display Name"
+entity_with_underscores
+entity.with.dots
+
+layers: {
+    myview: { #view
+        "entity-with-dashes"
+    }
+}
+`
+	reader := strings.NewReader(content)
+	d2map, err := parseD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("failed to parse: %v", err)
+	}
+
+	views := getViewsNodes(d2map)
+
+	if len(views) != 1 {
+		t.Fatalf("expected 1 view, got %d", len(views))
+	}
+}
+
+func TestEdgeCase_UnicodeInNames(t *testing.T) {
+	content := `
+日本語: "Japanese"
+emoji: "🚀 Rocket"
+
+layers: {
+    unicode_view: "日本語ビュー" { #view
+        日本語
+    }
+}
+`
+	reader := strings.NewReader(content)
+	d2map, err := parseD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("failed to parse: %v", err)
+	}
+
+	views := getViewsNodes(d2map)
+
+	if len(views) != 1 {
+		t.Fatalf("expected 1 view, got %d", len(views))
+	}
+
+	name := getNodeDisplayName(views[0])
+	if !strings.Contains(name, "日本語") {
+		t.Fatalf("expected unicode display name, got '%s'", name)
+	}
+}
+
+func TestEdgeCase_DeeplyNestedContent(t *testing.T) {
+	content := `
+a: {
+    b: {
+        c: {
+            d: "Deep"
+        }
+    }
+}
+
+layers: {
+    deep_view: { #view
+        a.b.c.d
+    }
+}
+`
+	reader := strings.NewReader(content)
+	d2map, err := parseD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("failed to parse: %v", err)
+	}
+
+	views := getViewsNodes(d2map)
+
+	if len(views) != 1 {
+		t.Fatalf("expected 1 view, got %d", len(views))
+	}
+}

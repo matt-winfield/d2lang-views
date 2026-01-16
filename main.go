@@ -51,9 +51,17 @@ func main() {
 
 // ensureDirExists checks if a directory exists at the given path,
 // and creates it (including any necessary parents) if it does not.
+// Returns an error if a file (not a directory) exists at the path.
 func ensureDirExists(path string) error {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
 		return os.MkdirAll(path, os.ModePerm)
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("path exists but is not a directory: %s", path)
 	}
 	return nil
 }
