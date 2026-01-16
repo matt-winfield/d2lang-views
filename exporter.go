@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"oss.terrastruct.com/d2/d2ast"
 	"oss.terrastruct.com/d2/d2graph"
 )
 
@@ -19,18 +20,26 @@ func replaceViewLayers(reader io.Reader, graph *d2graph.Graph, rootObjectIds []s
 	source := string(contentBytes)
 	var builder strings.Builder
 	builder.WriteString(source)
+	replacedRanges := make([]d2ast.Range, 0)
 
 	views := getViewsNodes(graph)
 	for _, view := range views {
-		viewContent := generateViewContent(view, graph, rootObjectIds)
+		viewReplacementResult := generateViewContent(view, graph, rootObjectIds)
 		builder.WriteString("\n\n")
 		builder.WriteString("# View: ")
 		builder.WriteString(view.Name)
 		builder.WriteString("\n")
-		builder.WriteString(viewContent)
+		builder.WriteString(viewReplacementResult.newContent)
+		replacedRanges = append(replacedRanges, viewReplacementResult.replacedRanges...)
 	}
 
 	return builder.String(), nil
+}
+
+type viewReplacementResult struct {
+	newContent string
+	// replacedRanges holds the ranges in the original source that were replaced with view content
+	replacedRanges []d2ast.Range
 }
 
 // generateViewContent generates D2 language content for the given view node
@@ -38,9 +47,10 @@ func replaceViewLayers(reader io.Reader, graph *d2graph.Graph, rootObjectIds []s
 // view is the D2 graph node representing the view
 // graph is the full D2 graph (needed for getting object info that isn't included in the view)
 // rootObjectIds is a list of entity IDs from the base layer to include in the view
-func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectIds []string) string {
+func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectIds []string) viewReplacementResult {
 	var builder strings.Builder
 	processedIds := make(map[string]bool)
+	replacedRanges := make([]d2ast.Range, 0, len(processedIds))
 
 	for _, object := range view.Objects {
 		// Skip container objects that have children - only include leaf nodes
@@ -54,10 +64,16 @@ func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectId
 		if slices.Contains(rootObjectIds, objectId) {
 			builder.WriteString(getObjectD2Representation(object, graph))
 			processedIds[objectId] = true
+			for _, reference := range object.References {
+				replacedRanges = append(replacedRanges, reference.Key.Range)
+			}
 		}
 	}
 
-	return builder.String()
+	return viewReplacementResult{
+		newContent:     builder.String(),
+		replacedRanges: replacedRanges,
+	}
 }
 
 // getObjectD2Representation returns the D2 language representation of the given object.
