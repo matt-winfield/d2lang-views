@@ -409,8 +409,8 @@ layers: {
     view1: { #view
         client
         server
-		database -> cache
-		database -> something-else
+        database -> cache
+        database -> something-else
     }
 }
 `
@@ -442,8 +442,8 @@ database: "PostgreSQL"
 cache: "Redis"
 
 
-
-
+        database -> cache
+        database -> something-else
     }
 }
 `

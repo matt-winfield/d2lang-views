@@ -81,9 +81,9 @@ func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectId
 			builder.WriteString(getObjectD2Representation(object, graph))
 			processedIds[objectId] = true
 			for _, reference := range object.References {
-				// if reference.InEdge() {
-				// 	continue
-				// }
+				if reference.InEdge() {
+					continue
+				}
 
 				// Extend the range to the end of the line to capture the full statement
 				fullRange := extendRangeToEndOfLine(reference.Key.Range, source)
