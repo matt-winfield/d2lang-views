@@ -54,6 +54,8 @@ layers: {
 ## Features
 
 -   [x] Parse D2 diagrams to identify view layers marked with `#view`.
+-   [x] Extract entities explicitly defined in the base layer
+-   [ ] Extract implicitly defined entities from relationships in the base layer.
 -   [ ] Identify referenced entities from the base layer within each view layer.
 -   [ ] Generate a new D2 diagram file, copying the necessary entities and relationships into the view layer.
 -   [ ] Support `# include classes.<class-name` to include entities of a specific class in the view.

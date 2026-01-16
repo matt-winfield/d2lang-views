@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -757,5 +758,119 @@ layers: {
 
 	if len(views) != 1 {
 		t.Fatalf("expected 1 view, got %d", len(views))
+	}
+}
+
+func TestExtractBaseLayerEntities(t *testing.T) {
+	tests := []struct {
+		name        string
+		content     string
+		expectedIDs []string
+	}{
+		{
+			name: "Simple entities",
+			content: `
+a: "Entity A"
+b: "Entity B"
+a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+layers: {
+	layer1: {
+		a
+	}
+}
+
+scenarios: {
+    test: {
+		b
+	}
+}
+	
+steps: {
+    step1: {
+		c
+	}
+}`,
+			expectedIDs: []string{"a", "b", "c"},
+		},
+		{
+			name: "Inline nested entities",
+			content: `
+a.b
+a.b.c
+d
+
+layers: {
+	layer1: {
+		a
+	}
+}
+
+scenarios: {
+    test: {
+		b
+	}
+}
+	
+steps: {
+    step1: {
+		c
+	}
+}`,
+			expectedIDs: []string{"a", "a.b", "a.b.c", "d"},
+		},
+		{
+			name: "Nested entities",
+			content: `
+a {
+    b: "Entity B" {
+		c
+	}
+}
+d
+
+layers: {
+	layer1: {
+		a
+	}
+}
+
+scenarios: {
+    test: {
+		b
+	}
+}
+	
+steps: {
+    step1: {
+		c
+	}
+}`,
+			expectedIDs: []string{"a", "a.b", "a.b.c", "d"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := strings.NewReader(tt.content)
+			d2map, err := parseD2("test.d2", reader)
+			if err != nil {
+				t.Fatalf("failed to parse: %v", err)
+			}
+
+			entities := extractBaseLayerEntities(d2map)
+
+			for _, expected := range tt.expectedIDs {
+				if !slices.Contains(entities, expected) {
+					t.Fatalf("expected %s to be in %s", expected, entities)
+				}
+			}
+
+			if len(entities) != len(tt.expectedIDs) {
+				t.Fatalf("expected %d entities, got %d", len(tt.expectedIDs), len(entities))
+			}
+		})
 	}
 }

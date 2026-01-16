@@ -94,3 +94,61 @@ func mapKeyHasId(node d2ast.MapNodeBox, key string) bool {
 
 	return node.MapKey.Key.StringIDA()[0] == key
 }
+
+// extractBaseLayerEntities extracts the entity IDs from the base layer of the D2 map.
+// The retuned ID of an entity includes all parents separated by dots.
+func extractBaseLayerEntities(d2map *d2ast.Map) []string {
+	var entities = make(map[string]struct{})
+
+	for _, node := range d2map.Nodes {
+		if mapKeyHasId(node, "layers") {
+			continue
+		}
+		if mapKeyHasId(node, "scenarios") {
+			continue
+		}
+		if mapKeyHasId(node, "steps") {
+			continue
+		}
+
+		extractMapNodeEntities(&node, "", &entities)
+	}
+
+	var entityList []string
+	for id := range entities {
+		entityList = append(entityList, id)
+	}
+
+	return entityList
+}
+
+// extractMapNodeEntities extracts the entity IDs from the given D2 map node.
+//
+// The retuned ID of an entity includes all parents separated by dots.
+//
+// prefix is the parent ID prefix for nested entities.
+//
+// entities is a pointer to a map used to collect unique entity IDs.
+func extractMapNodeEntities(node *d2ast.MapNodeBox, prefix string, entities *map[string]struct{}) {
+	if len(prefix) > 0 {
+		prefix = prefix + "."
+	}
+
+	if node.MapKey != nil && node.MapKey.Key != nil {
+		// IDA is the identifier array
+		// e.g., for an ID of "a.b.c", IDA is ["a", "b", "c"]
+		// We want to add "a", "a.b", and "a.b.c" to the entities set
+		ida := node.MapKey.Key.StringIDA()
+		for i := range ida {
+			id := prefix + strings.Join(ida[:i+1], ".")
+			(*entities)[id] = struct{}{}
+		}
+
+		id := prefix + strings.Join(ida, ".")
+		if node.MapKey != nil && node.MapKey.Value.Map != nil {
+			for _, child := range node.MapKey.Value.Map.Nodes {
+				extractMapNodeEntities(&child, id, entities)
+			}
+		}
+	}
+}
