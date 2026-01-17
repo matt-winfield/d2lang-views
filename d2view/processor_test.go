@@ -123,6 +123,32 @@ layers: {
 				},
 			},
 		},
+		{
+			name: "Multiple view layers",
+			content: `
+				a -> b
+				layers: {
+				    view1: { #view
+				        a
+				    }
+				    view2: { #view
+				        b
+				    }
+				}
+			`,
+			expectedViewNames: []string{"view1", "view2"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+			}{
+				{
+					{id: "a", label: ""},
+				},
+				{
+					{id: "b", label: ""},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
