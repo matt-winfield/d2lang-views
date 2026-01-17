@@ -8,6 +8,7 @@ import (
 
 	"github.com/alexflint/go-arg"
 	"github.com/fatih/color"
+	"github.com/matt-winfield/d2lang-views/compile"
 )
 
 var args struct {
@@ -31,7 +32,7 @@ func main() {
 	checkErr(err, "Unable to create destination directory")
 
 	reader := bytes.NewReader(content)
-	graph, _, err := compileD2(args.Source, reader)
+	graph, _, err := compile.CompileD2(args.Source, reader)
 	checkErr(err, "Unable to compile D2 content")
 
 	graphJson, err := json.MarshalIndent(graph, "", "  ")
@@ -41,10 +42,10 @@ func main() {
 	err = os.WriteFile(graphOutputPath, graphJson, 0644)
 	checkErr(err, "Unable to write output file")
 
-	views := getViewsNodes(graph)
+	views := compile.GetViewsNodes(graph)
 	fmt.Printf("Found %d view nodes\n", len(views))
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	sourceReader := bytes.NewReader(content)
 	viewContent, err := replaceViewLayers(sourceReader, graph, rootObjectIds)

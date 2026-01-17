@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/matt-winfield/d2lang-views/compile"
 	"oss.terrastruct.com/d2/d2ast"
 )
 
@@ -21,12 +22,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -67,12 +68,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -97,12 +98,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -119,12 +120,12 @@ layers: {
 func TestReplaceViewLayers_EmptyContent(t *testing.T) {
 	content := ``
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -148,12 +149,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -182,12 +183,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -213,12 +214,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -247,12 +248,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -277,12 +278,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -309,12 +310,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -344,12 +345,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -379,12 +380,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -415,12 +416,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -481,12 +482,12 @@ layers: {
     }
 }`
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -543,12 +544,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -585,12 +586,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -616,12 +617,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -651,12 +652,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -700,12 +701,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -747,12 +748,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -794,12 +795,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -841,12 +842,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -888,12 +889,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -937,12 +938,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -988,12 +989,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -1041,12 +1042,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
@@ -1098,12 +1099,12 @@ layers: {
 }
 `
 	reader := strings.NewReader(content)
-	graph, _, err := compileD2("test.d2", reader)
+	graph, _, err := compile.CompileD2("test.d2", reader)
 	if err != nil {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	rootObjectIds := extractRootObjectIds(graph)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	reader2 := strings.NewReader(content)
 	result, err := replaceViewLayers(reader2, graph, rootObjectIds)

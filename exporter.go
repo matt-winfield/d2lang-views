@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/matt-winfield/d2lang-views/compile"
 	"oss.terrastruct.com/d2/d2ast"
 	"oss.terrastruct.com/d2/d2graph"
 )
@@ -19,7 +20,7 @@ func replaceViewLayers(reader io.Reader, graph *d2graph.Graph, rootObjectIds []s
 	}
 	source := string(contentBytes)
 
-	views := getViewsNodes(graph)
+	views := compile.GetViewsNodes(graph)
 	var operations []rangeOperation
 	for _, view := range views {
 		viewResult := generateViewContent(view, graph, rootObjectIds, source)

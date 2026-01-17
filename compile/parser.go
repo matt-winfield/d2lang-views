@@ -1,4 +1,4 @@
-package main
+package compile
 
 import (
 	"io"
@@ -10,17 +10,17 @@ import (
 	"oss.terrastruct.com/d2/d2target"
 )
 
-// compileD2 reads from the provided io.Reader and returns the compiled D2 map.
+// CompileD2 reads from the provided io.Reader and returns the compiled D2 map.
 //
 // path is the file path used for error reporting
 // reader is the input source containing D2 content
-func compileD2(path string, reader io.Reader) (*d2graph.Graph, *d2target.Config, error) {
+func CompileD2(path string, reader io.Reader) (*d2graph.Graph, *d2target.Config, error) {
 	compileOpts := &d2compiler.CompileOptions{}
 	return d2compiler.Compile(path, reader, compileOpts)
 }
 
-// getViewsNodes extracts and returns all view nodes from the given D2 map.
-func getViewsNodes(graph *d2graph.Graph) []*d2graph.Graph {
+// GetViewsNodes extracts and returns all view nodes from the given D2 map.
+func GetViewsNodes(graph *d2graph.Graph) []*d2graph.Graph {
 	if graph == nil || graph.AST == nil {
 		return []*d2graph.Graph{}
 	}
@@ -73,20 +73,6 @@ func isViewNode(node d2ast.MapNodeBox) bool {
 	return false
 }
 
-// getNodeDisplayName safely retrieves the display name of a D2 map node.
-func getNodeDisplayName(node d2ast.MapNodeBox) string {
-	if node.MapKey == nil {
-		return ""
-	}
-
-	unboxed := node.MapKey.Primary.Unbox()
-	if unboxed == nil {
-		return strings.Join(node.MapKey.Key.StringIDA(), " ")
-	}
-
-	return node.MapKey.Primary.ScalarString()
-}
-
 // getLayersNode extracts and returns the layers node from the given D2 map.
 func getLayersNode(d2graph *d2graph.Graph) *d2ast.MapNodeBox {
 	for _, node := range d2graph.AST.Nodes {
@@ -106,9 +92,9 @@ func mapKeyHasId(node d2ast.MapNodeBox, key string) bool {
 	return node.MapKey.Key.StringIDA()[0] == key
 }
 
-// extractRootObjectIds extracts the entity IDs from the base layer of the D2 map.
+// ExtractRootObjectIds extracts the entity IDs from the base layer of the D2 map.
 // The retuned ID of an entity includes all parents separated by dots.
-func extractRootObjectIds(d2graph *d2graph.Graph) []string {
+func ExtractRootObjectIds(d2graph *d2graph.Graph) []string {
 	var entities = make(map[string]struct{})
 
 	for _, child := range d2graph.Root.ChildrenArray {
