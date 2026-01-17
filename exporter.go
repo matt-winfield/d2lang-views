@@ -70,49 +70,23 @@ func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectId
 	var builder strings.Builder
 	replacedRanges := make([]d2ast.Range, 0)
 
-	// insertByte tracks the start of the line containing the earliest reference
+	// earliestInsertionByte tracks the start of the line containing the earliest reference
 	// This is where the new view content will be inserted
-	insertByte := len(source)
-	// indentation is extracted from the source between line start and reference position
+	earliestInsertionByte := len(source)
+	// indentation tracks the indentation level at the earliest insertion point
 	indentation := ""
 
 	for _, object := range view.Objects {
 		objectId := getAbsoluteId(object)
 		if slices.Contains(rootObjectIds, objectId) {
 			builder.WriteString(getObjectD2Representation(object, graph))
-			for _, reference := range object.References {
-				// Track the earliest line start position for insertion
-				lineStart := findLineStart(source, reference.Key.Range.Start.Byte)
-				if lineStart < insertByte {
-					insertByte = lineStart
-					// Extract indentation (whitespace between line start and reference)
-					indentation = source[lineStart:reference.Key.Range.Start.Byte]
-				}
+			res := checkObjectReferences(object, rootObjectIds, source)
 
-				if reference.InEdge() {
-					continue
-				}
-
-				referenceContainsNonRootObject := false
-				ida := reference.Key.StringIDA()
-				for i := range ida {
-					objectId := strings.Join(ida[:i+1], ".")
-					if !slices.Contains(rootObjectIds, objectId) {
-						referenceContainsNonRootObject = true
-						break
-					}
-				}
-
-				// Skip references that include non-root objects
-				// Since those define new objects implicitly
-				if referenceContainsNonRootObject {
-					continue
-				}
-
-				// Extend the range to the end of the line to capture the full statement
-				fullRange := extendRangeToEndOfLine(reference.Key.Range, source)
-				replacedRanges = append(replacedRanges, fullRange)
+			if res.earliestInsertionByte < earliestInsertionByte {
+				earliestInsertionByte = res.earliestInsertionByte
+				indentation = res.insertPointIndentation
 			}
+			replacedRanges = append(replacedRanges, res.rangesToReplace...)
 		}
 	}
 
@@ -129,8 +103,64 @@ func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectId
 	return viewReplacementResult{
 		newContent:     builder.String(),
 		replacedRanges: replacedRanges,
-		insertByte:     insertByte,
+		insertByte:     earliestInsertionByte,
 		indentation:    indentation,
+	}
+}
+
+type objectReferencesResult struct {
+	rangesToReplace        []d2ast.Range
+	earliestInsertionByte  int
+	insertPointIndentation string
+}
+
+// checkObjectReferences checks the the references of the given object, returning any that should be replaced in the source code.
+// It will remove any references that point to root objects only (i.e. not defining new objects implicitly).
+func checkObjectReferences(object *d2graph.Object, rootObjectIds []string, source string) objectReferencesResult {
+	indentation := ""
+	earliestInsertionByte := len(source)
+	replacedRanges := make([]d2ast.Range, 0)
+
+	for _, reference := range object.References {
+		// Track the earliest line start position for insertion
+		lineStart := findLineStart(source, reference.Key.Range.Start.Byte)
+		if lineStart < earliestInsertionByte {
+			earliestInsertionByte = lineStart
+			// Extract indentation (whitespace between line start and reference)
+			indentation = source[lineStart:reference.Key.Range.Start.Byte]
+		}
+
+		if reference.InEdge() {
+			continue
+		}
+
+		// Check if the reference includes any non-root objects
+		// If so, skip it (don't remove from source) since it defines new objects implicitly
+		referenceContainsNonRootObject := false
+		ida := reference.Key.StringIDA()
+		for i := range ida {
+			objectId := strings.Join(ida[:i+1], ".")
+			if !slices.Contains(rootObjectIds, objectId) {
+				referenceContainsNonRootObject = true
+				break
+			}
+		}
+
+		// Skip (don't remove from source) references that include non-root objects
+		// Since those define new objects implicitly
+		if referenceContainsNonRootObject {
+			continue
+		}
+
+		// Extend the range to the end of the line to capture the full statement
+		fullRange := extendRangeToEndOfLine(reference.Key.Range, source)
+		replacedRanges = append(replacedRanges, fullRange)
+	}
+
+	return objectReferencesResult{
+		rangesToReplace:        replacedRanges,
+		earliestInsertionByte:  earliestInsertionByte,
+		insertPointIndentation: indentation,
 	}
 }
 

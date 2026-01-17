@@ -54,7 +54,7 @@ func main() {
 	err = os.WriteFile(viewOutputPath, []byte(viewContent), 0644)
 	checkErr(err, "Unable to write output file with views")
 
-	color.Green("Successfully wrote output to %s", graphOutputPath)
+	color.Green("Successfully wrote output to %s", viewOutputPath)
 }
 
 // ensureDirExists checks if a directory exists at the given path,
