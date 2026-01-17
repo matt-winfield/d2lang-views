@@ -116,6 +116,7 @@ type objectReferencesResult struct {
 
 // checkObjectReferences checks the the references of the given object, returning any that should be replaced in the source code.
 // It will remove any references that point to root objects only (i.e. not defining new objects implicitly).
+// It also tracks the earliest insertion point for adding new content - the start of the line containing the earliest reference.
 func checkObjectReferences(object *d2graph.Object, rootObjectIds []string, source string) objectReferencesResult {
 	indentation := ""
 	earliestInsertionByte := len(source)
@@ -130,25 +131,17 @@ func checkObjectReferences(object *d2graph.Object, rootObjectIds []string, sourc
 			indentation = source[lineStart:reference.Key.Range.Start.Byte]
 		}
 
+		// Any edges defined in a view should be kept
+		// View edges (relationships) are in addition to the base layer edges
 		if reference.InEdge() {
 			continue
 		}
 
 		// Check if the reference includes any non-root objects
-		// If so, skip it (don't remove from source) since it defines new objects implicitly
-		referenceContainsNonRootObject := false
-		ida := reference.Key.StringIDA()
-		for i := range ida {
-			objectId := strings.Join(ida[:i+1], ".")
-			if !slices.Contains(rootObjectIds, objectId) {
-				referenceContainsNonRootObject = true
-				break
-			}
-		}
-
 		// Skip (don't remove from source) references that include non-root objects
 		// Since those define new objects implicitly
-		if referenceContainsNonRootObject {
+		containsNonRootObject := referenceContainsNonRootObject(&reference, rootObjectIds)
+		if containsNonRootObject {
 			continue
 		}
 
@@ -162,6 +155,20 @@ func checkObjectReferences(object *d2graph.Object, rootObjectIds []string, sourc
 		earliestInsertionByte:  earliestInsertionByte,
 		insertPointIndentation: indentation,
 	}
+}
+
+// referenceContainsNonRootObject checks if the given reference includes any non-root objects.
+func referenceContainsNonRootObject(reference *d2graph.Reference, rootObjectIds []string) bool {
+	containsNonRootObject := false
+	ida := reference.Key.StringIDA()
+	for i := range ida {
+		objectId := strings.Join(ida[:i+1], ".")
+		if !slices.Contains(rootObjectIds, objectId) {
+			containsNonRootObject = true
+			break
+		}
+	}
+	return containsNonRootObject
 }
 
 // getEdgeD2Representation returns the D2 language representation of the given edge.
