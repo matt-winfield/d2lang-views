@@ -7,47 +7,39 @@ import (
 	"github.com/matt-winfield/d2lang-views/compile"
 )
 
-func TestProcessViews_SingleView(t *testing.T) {
-	content := `
+func TestProcessViews(t *testing.T) {
+	tests := []struct {
+		name                   string
+		content                string
+		expectedViewNames      []string
+		expectedObjectsPerView [][]struct {
+			id    string
+			label string
+		}
+	}{
+		{
+			name: "Single view with single object",
+			content: `
 a -> b
 layers: {
     view1: { #view
         a
     }
 }
-`
-	reader := strings.NewReader(content)
-	graph, _, err := compile.CompileD2("test.d2", reader)
-	if err != nil {
-		t.Fatalf("setup failed: %v", err)
-	}
-
-	viewLayers := compile.GetViewsNodes(graph)
-	views := ProcessViews(viewLayers, graph)
-
-	if len(views) != 1 {
-		t.Fatalf("expected 1 view, got %d", len(views))
-	}
-
-	if views[0].Name != "view1" {
-		t.Fatalf("expected view name 'view1', got '%s'", views[0].Name)
-	}
-
-	if len(views[0].Edges) != 0 {
-		t.Fatalf("expected 0 edges in view, got %d", len(views[0].Edges))
-	}
-
-	if len(views[0].Objects) != 1 {
-		t.Fatalf("expected 1 object in view, got %d", len(views[0].Objects))
-	}
-
-	if views[0].Objects[0].ID != "a" {
-		t.Fatalf("expected object ID 'a', got '%s'", views[0].Objects[0].ID)
-	}
-}
-
-func TestProcessViews_SingleViewWithBaseLabel(t *testing.T) {
-	content := `
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+			}{
+				{
+					{id: "a", label: ""},
+				},
+			},
+		},
+		{
+			name: "Single view with base label",
+			content: `
 a: "Node A"
 a -> b
 layers: {
@@ -55,43 +47,20 @@ layers: {
         a
     }
 }
-`
-	reader := strings.NewReader(content)
-	graph, _, err := compile.CompileD2("test.d2", reader)
-	if err != nil {
-		t.Fatalf("setup failed: %v", err)
-	}
-
-	viewLayers := compile.GetViewsNodes(graph)
-	views := ProcessViews(viewLayers, graph)
-
-	if len(views) != 1 {
-		t.Fatalf("expected 1 view, got %d", len(views))
-	}
-
-	if views[0].Name != "view1" {
-		t.Fatalf("expected view name 'view1', got '%s'", views[0].Name)
-	}
-
-	if len(views[0].Edges) != 0 {
-		t.Fatalf("expected 0 edges in view, got %d", len(views[0].Edges))
-	}
-
-	if len(views[0].Objects) != 1 {
-		t.Fatalf("expected 1 object in view, got %d", len(views[0].Objects))
-	}
-
-	if views[0].Objects[0].ID != "a" {
-		t.Fatalf("expected object ID 'a', got '%s'", views[0].Objects[0].ID)
-	}
-
-	if views[0].Objects[0].Label != "Node A" {
-		t.Fatalf("expected object Label 'Node A', got '%s'", views[0].Objects[0].Label)
-	}
-}
-
-func TestProcessViews_SingleViewWithViewLabel(t *testing.T) {
-	content := `
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+			}{
+				{
+					{id: "a", label: "Node A"},
+				},
+			},
+		},
+		{
+			name: "Single view with view label",
+			content: `
 a
 a -> b
 layers: {
@@ -99,43 +68,20 @@ layers: {
         a: "View Node A"
     }
 }
-`
-	reader := strings.NewReader(content)
-	graph, _, err := compile.CompileD2("test.d2", reader)
-	if err != nil {
-		t.Fatalf("setup failed: %v", err)
-	}
-
-	viewLayers := compile.GetViewsNodes(graph)
-	views := ProcessViews(viewLayers, graph)
-
-	if len(views) != 1 {
-		t.Fatalf("expected 1 view, got %d", len(views))
-	}
-
-	if views[0].Name != "view1" {
-		t.Fatalf("expected view name 'view1', got '%s'", views[0].Name)
-	}
-
-	if len(views[0].Edges) != 0 {
-		t.Fatalf("expected 0 edges in view, got %d", len(views[0].Edges))
-	}
-
-	if len(views[0].Objects) != 1 {
-		t.Fatalf("expected 1 object in view, got %d", len(views[0].Objects))
-	}
-
-	if views[0].Objects[0].ID != "a" {
-		t.Fatalf("expected object ID 'a', got '%s'", views[0].Objects[0].ID)
-	}
-
-	if views[0].Objects[0].Label != "View Node A" {
-		t.Fatalf("expected object Label 'View Node A', got '%s'", views[0].Objects[0].Label)
-	}
-}
-
-func TestProcessViews_SingleViewWithBaseAndViewLabel(t *testing.T) {
-	content := `
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+			}{
+				{
+					{id: "a", label: "View Node A"},
+				},
+			},
+		},
+		{
+			name: "Single view with both base and view label",
+			content: `
 a: "Base Node A"
 a -> b
 layers: {
@@ -143,37 +89,76 @@ layers: {
         a: "View Node A"
     }
 }
-`
-	reader := strings.NewReader(content)
-	graph, _, err := compile.CompileD2("test.d2", reader)
-	if err != nil {
-		t.Fatalf("setup failed: %v", err)
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+			}{
+				{
+					{id: "a", label: "View Node A"},
+				},
+			},
+		},
+		{
+			name: "View with extra objects",
+			content: `
+a -> b
+layers: {
+	view1: { #view
+		a
+		extra
+		extra-with-label: "Extra Node"
+	}
+}`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+			}{
+				{
+					{id: "a", label: ""},
+					{id: "extra", label: ""},
+					{id: "extra-with-label", label: "Extra Node"},
+				},
+			},
+		},
 	}
 
-	viewLayers := compile.GetViewsNodes(graph)
-	views := ProcessViews(viewLayers, graph)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := strings.NewReader(tt.content)
+			graph, _, err := compile.CompileD2("test.d2", reader)
+			if err != nil {
+				t.Fatalf("setup failed: %v", err)
+			}
 
-	if len(views) != 1 {
-		t.Fatalf("expected 1 view, got %d", len(views))
-	}
+			viewLayers := compile.GetViewsNodes(graph)
+			views := ProcessViews(viewLayers, graph)
 
-	if views[0].Name != "view1" {
-		t.Fatalf("expected view name 'view1', got '%s'", views[0].Name)
-	}
+			if len(views) != len(tt.expectedViewNames) {
+				t.Fatalf("expected %d views, got %d", len(tt.expectedViewNames), len(views))
+			}
 
-	if len(views[0].Edges) != 0 {
-		t.Fatalf("expected 0 edges in view, got %d", len(views[0].Edges))
-	}
+			for i, expectedViewName := range tt.expectedViewNames {
+				if views[i].Name != expectedViewName {
+					t.Fatalf("expected view name '%s', got '%s'", expectedViewName, views[i].Name)
+				}
 
-	if len(views[0].Objects) != 1 {
-		t.Fatalf("expected 1 object in view, got %d", len(views[0].Objects))
-	}
+				expectedObjects := tt.expectedObjectsPerView[i]
+				if len(views[i].Objects) != len(expectedObjects) {
+					t.Fatalf("expected %d objects in view, got %d", len(expectedObjects), len(views[i].Objects))
+				}
 
-	if views[0].Objects[0].ID != "a" {
-		t.Fatalf("expected object ID 'a', got '%s'", views[0].Objects[0].ID)
-	}
-
-	if views[0].Objects[0].Label != "View Node A" {
-		t.Fatalf("expected object Label 'View Node A', got '%s'", views[0].Objects[0].Label)
+				for j, expectedObj := range expectedObjects {
+					if views[i].Objects[j].ID != expectedObj.id {
+						t.Fatalf("expected object ID '%s', got '%s'", expectedObj.id, views[i].Objects[j].ID)
+					}
+					if views[i].Objects[j].Label != expectedObj.label {
+						t.Fatalf("expected object Label '%s', got '%s'", expectedObj.label, views[i].Objects[j].Label)
+					}
+				}
+			}
+		})
 	}
 }
