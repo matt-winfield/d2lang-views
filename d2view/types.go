@@ -5,7 +5,9 @@ import "oss.terrastruct.com/d2/d2graph"
 // View represents an abstraction over a D2 layer that includes specific objects and their relationships.
 // A view may contain regular objects, references to base layer objects, and edges (relationships) between them.
 type View struct {
-	Edges []*d2graph.Edge
+	Name    string
+	Edges   []*d2graph.Edge
+	Objects []*Object
 }
 
 type Object struct {
