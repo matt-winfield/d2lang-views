@@ -8,6 +8,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/matt-winfield/d2lang-views/compile"
+	"github.com/matt-winfield/d2lang-views/d2view"
 	"oss.terrastruct.com/d2/d2ast"
 	"oss.terrastruct.com/d2/d2graph"
 )
@@ -78,7 +79,7 @@ func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectId
 	indentation := ""
 
 	for _, object := range view.Objects {
-		objectId := getAbsoluteId(object)
+		objectId := compile.GetAbsoluteId(object)
 		if slices.Contains(rootObjectIds, objectId) {
 			builder.WriteString(getObjectD2Representation(object, graph))
 			res := checkObjectReferences(object, rootObjectIds, source)
@@ -92,8 +93,8 @@ func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectId
 	}
 
 	for _, edge := range graph.Edges {
-		src := getAbsoluteId(edge.Src)
-		dst := getAbsoluteId(edge.Dst)
+		src := compile.GetAbsoluteId(edge.Src)
+		dst := compile.GetAbsoluteId(edge.Dst)
 
 		if viewContainsObjectId(view, src) && viewContainsObjectId(view, dst) {
 			// Both source and destination are in the view, include the edge
@@ -175,8 +176,8 @@ func referenceContainsNonRootObject(reference *d2graph.Reference, rootObjectIds 
 // getEdgeD2Representation returns the D2 language representation of the given edge.
 func getEdgeD2Representation(edge *d2graph.Edge) string {
 	var builder strings.Builder
-	srcId := getAbsoluteId(edge.Src)
-	dstId := getAbsoluteId(edge.Dst)
+	srcId := compile.GetAbsoluteId(edge.Src)
+	dstId := compile.GetAbsoluteId(edge.Dst)
 	builder.WriteString(fmt.Sprintf("%s ", srcId))
 
 	if edge.SrcArrow {
@@ -206,7 +207,7 @@ func getEdgeD2Representation(edge *d2graph.Edge) string {
 // viewContainsObjectId checks if the given view contains an object with the specified absolute ID.
 func viewContainsObjectId(view *d2graph.Graph, objectId string) bool {
 	for _, obj := range view.Objects {
-		if getAbsoluteId(obj) == objectId {
+		if compile.GetAbsoluteId(obj) == objectId {
 			return true
 		}
 	}
@@ -270,15 +271,15 @@ func findLineStart(source string, bytePos int) int {
 func getObjectD2Representation(object *d2graph.Object, graph *d2graph.Graph) string {
 	var builder strings.Builder
 
-	baseObject, err := findObjectById(graph, getAbsoluteId(object))
+	baseObject, err := compile.FindObjectById(graph, compile.GetAbsoluteId(object))
 	if err != nil {
 		// This object doesn't exist in the base graph
 		color.Yellow("%s", err)
 		return ""
 	}
 
-	objectId := getAbsoluteId(object)
-	label := getLabel(object, baseObject)
+	objectId := compile.GetAbsoluteId(object)
+	label := d2view.GetLabel(object, baseObject)
 	builder.WriteString(objectId)
 	if label != "" {
 		builder.WriteString(": \"")
@@ -288,40 +289,6 @@ func getObjectD2Representation(object *d2graph.Object, graph *d2graph.Graph) str
 	builder.WriteString("\n")
 
 	return builder.String()
-}
-
-// findObjectById searches for an object with the given ID in the D2 graph.
-func findObjectById(graph *d2graph.Graph, id string) (*d2graph.Object, error) {
-	for _, obj := range graph.Objects {
-		if getAbsoluteId(obj) == id {
-			return obj, nil
-		}
-	}
-	return nil, fmt.Errorf("unable to find object with id %s", id)
-}
-
-// getAbsoluteId returns the full dot-separated path of an object by traversing its parent chain.
-func getAbsoluteId(object *d2graph.Object) string {
-	var parts []string
-	current := object
-	for current != nil && current.Parent != nil {
-		parts = append([]string{current.ID}, parts...)
-		current = current.Parent
-	}
-	return strings.Join(parts, ".")
-}
-
-// getLabel returns the label to use for the view object.
-// It prefers the view object's label, falling back to the base object's label if necessary.
-// If neither has a custom label, it returns an empty string.
-func getLabel(viewObject *d2graph.Object, baseObject *d2graph.Object) string {
-	if viewObject.HasLabel() && viewObject.Label.Value != viewObject.ID {
-		return viewObject.Label.Value
-	}
-	if baseObject != nil && baseObject.HasLabel() && baseObject.Label.Value != baseObject.ID {
-		return baseObject.Label.Value
-	}
-	return ""
 }
 
 // rangeOperation represents an operation to perform on a range in the source.

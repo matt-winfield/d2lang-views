@@ -1,39 +1,62 @@
 package d2view
 
-import "oss.terrastruct.com/d2/d2graph"
+import (
+	"github.com/matt-winfield/d2lang-views/compile"
+	"oss.terrastruct.com/d2/d2graph"
+)
 
-// ProcessViews processes view layers defined in the D2 graph and returns an array of Views
-func ProcessViews(viewLayers []*d2graph.Graph) []View {
+// ProcessViews processes view layers defined in the D2 graph and returns an array of Views.
+// viewLayers is an array of D2 graph layers that represent views.
+// graph is the complete D2 graph, which is used to reference base layer objects.
+func ProcessViews(viewLayers []*d2graph.Graph, graph *d2graph.Graph) []View {
 	views := make([]View, 0)
 
 	for _, layer := range viewLayers {
-		views = append(views, processView(layer))
+		views = append(views, processView(layer, graph))
 	}
 
 	return views
 }
 
 // processView processes a single view layer and constructs a View object from it.
-func processView(layer *d2graph.Graph) View {
+func processView(layer *d2graph.Graph, graph *d2graph.Graph) View {
 	return View{
 		Name:    layer.Name,
 		Edges:   layer.Edges,
-		Objects: processViewObjects(layer),
+		Objects: processViewObjects(layer, graph),
 	}
 }
 
 // processViewObjects processes the objects within a view layer and constructs an array of Object instances.
-func processViewObjects(layer *d2graph.Graph) []*Object {
+func processViewObjects(layer *d2graph.Graph, graph *d2graph.Graph) []*Object {
 	objects := make([]*Object, 0)
 
 	for _, obj := range layer.Objects {
+		baseObj, err := compile.FindObjectById(graph, compile.GetAbsoluteId(obj))
+		if err != nil {
+			baseObj = nil
+		}
+
 		viewObj := &Object{
 			BaseObject: obj,
-			Name:       obj.ID,
-			Label:      obj.Label.Value,
+			ID:         obj.ID,
+			Label:      GetLabel(obj, baseObj),
 		}
 		objects = append(objects, viewObj)
 	}
 
 	return objects
+}
+
+// GetLabel returns the label to use for the view object.
+// It prefers the view object's label, falling back to the base object's label if necessary.
+// If neither has a label, it returns the view object's ID.
+func GetLabel(viewObject *d2graph.Object, baseObject *d2graph.Object) string {
+	if viewObject.HasLabel() && viewObject.Label.Value != viewObject.ID {
+		return viewObject.Label.Value
+	}
+	if baseObject != nil && baseObject.HasLabel() && baseObject.Label.Value != baseObject.ID {
+		return baseObject.Label.Value
+	}
+	return ""
 }
