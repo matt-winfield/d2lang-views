@@ -38,7 +38,8 @@ func processViewObjects(layer *d2graph.Graph, graph *d2graph.Graph) []*Object {
 		}
 
 		viewObj := &Object{
-			BaseObject: obj,
+			BaseObject: baseObj,
+			ViewObject: obj,
 			ID:         obj.ID,
 			Label:      GetLabel(obj, baseObj),
 		}
