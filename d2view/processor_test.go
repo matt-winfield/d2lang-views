@@ -210,7 +210,7 @@ func TestProcessViews_WithRelationships(t *testing.T) {
 		}
 	}{
 		{
-			name: "2 nodes with relationship",
+			name: "2 nodes with relationship in the base layer",
 			content: `
 a -> b
 c
@@ -218,6 +218,39 @@ layers: {
     view1: { #view
         a
 		b
+    }
+}
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+			}{
+				{
+					{id: "a", label: ""},
+					{id: "b", label: ""},
+				},
+			},
+			expectedEdgesPerView: [][]struct {
+				src      string
+				dst      string
+				srcArrow bool
+				dstArrow bool
+			}{
+				{
+					{src: "a", dst: "b", srcArrow: false, dstArrow: true},
+				},
+			},
+		},
+		{
+			name: "2 nodes with relationship in the view layer",
+			content: `
+a
+b
+c
+layers: {
+    view1: { #view
+        a -> b
     }
 }
 `,

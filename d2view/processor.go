@@ -29,7 +29,7 @@ func processView(layer *d2graph.Graph, graph *d2graph.Graph) View {
 
 // processViewObjects processes the objects within a view layer and constructs an array of Object instances.
 func processViewObjects(layer *d2graph.Graph, graph *d2graph.Graph) []*Object {
-	objects := make([]*Object, 0)
+	objects := make([]*Object, 0, len(layer.Objects))
 
 	for _, obj := range layer.Objects {
 		baseObj, err := compile.FindObjectById(graph, compile.GetAbsoluteId(obj))
@@ -65,7 +65,7 @@ func GetLabel(viewObject *d2graph.Object, baseObject *d2graph.Object) string {
 // processViewEdges extracts the edges from the base layer that are relevant to the view layer.
 // Only edges where both the source and destination objects are present in the view layer are included.
 func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph) []*d2graph.Edge {
-	edges := make([]*d2graph.Edge, 0)
+	edges := make([]*d2graph.Edge, 0, len(layer.Edges))
 	viewObjectIds := make(map[string]struct{})
 	for _, obj := range layer.Objects {
 		viewObjectIds[compile.GetAbsoluteId(obj)] = struct{}{}
@@ -82,6 +82,8 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph) []*d2graph.Edg
 			edges = append(edges, edge)
 		}
 	}
+
+	edges = append(edges, layer.Edges...)
 
 	return edges
 }
