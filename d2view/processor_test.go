@@ -275,6 +275,87 @@ layers: {
 				},
 			},
 		},
+		{
+			name: "nested nodes with relationships",
+			content: `
+a: "Node A" {
+    b: "Node B" {
+		c: "Node C"
+	}
+}
+a.b -> d
+
+layers: {
+    view1: { #view
+        a.b.c
+		d
+    }
+}
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+			}{
+				{
+					{id: "a", label: "Node A"},
+					{id: "b", label: "Node B"},
+					{id: "c", label: "Node C"},
+					{id: "d", label: ""},
+				},
+			},
+			expectedEdgesPerView: [][]struct {
+				src      string
+				dst      string
+				srcArrow bool
+				dstArrow bool
+			}{
+				{
+					{src: "a.b", dst: "d", srcArrow: false, dstArrow: true},
+				},
+			},
+		},
+		{
+			name: "multiple relationship directions",
+			content: `
+a; b; c; d;
+a -> b
+b <-> c
+c <- d
+a -- d
+
+layers: {
+    view1: { #view
+		a;b;c;d
+    }
+}
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+			}{
+				{
+					{id: "a", label: ""},
+					{id: "b", label: ""},
+					{id: "c", label: ""},
+					{id: "d", label: ""},
+				},
+			},
+			expectedEdgesPerView: [][]struct {
+				src      string
+				dst      string
+				srcArrow bool
+				dstArrow bool
+			}{
+				{
+					{src: "a", dst: "b", srcArrow: false, dstArrow: true},
+					{src: "b", dst: "c", srcArrow: true, dstArrow: true},
+					{src: "c", dst: "d", srcArrow: true, dstArrow: false},
+					{src: "a", dst: "d", srcArrow: false, dstArrow: false},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
