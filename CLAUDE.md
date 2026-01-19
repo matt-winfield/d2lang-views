@@ -61,7 +61,19 @@ The parser uses the D2 library (oss.terrastruct.com/d2) which provides:
 -   `d2graph` - Compiled graph with objects and edges
 -   `d2compiler` - Compilation from source to graph
 
-### 2. Exporter (exporter.go)
+### 2. Processor (d2view/processor.go)
+
+Processes view layers and constructs View objects with filtered objects and edges:
+
+-   `ProcessViews()` - Main entry point that processes all view layers
+-   `getExplicitObjectIds()` - Identifies explicitly referenced objects (vs implicit parents)
+-   `processViewObjects()` - Filters implicit parents and builds Object instances with filtered IDs
+-   `processViewEdges()` - Extracts relevant edges and maps IDs to filtered hierarchy
+-   `buildFilteredAbsoluteId()` - Constructs IDs after removing implicit parent segments
+
+**Implicit Parent Filtering**: When `parent.child` is referenced without `parent`, the parent is filtered out and `child` becomes a root-level entity. Only objects explicitly listed in the view are included.
+
+### 3. Exporter (exporter.go)
 
 Generates view content by replacing view layer references with full entity definitions:
 
@@ -71,17 +83,9 @@ Generates view content by replacing view layer references with full entity defin
 -   `getEdgeD2Representation()` - Converts graph edges to D2 syntax
 -   `applyRangeOperations()` - Handles text manipulation to insert generated content and remove references
 
-**Key algorithm**: For each view, the exporter:
-
-1. Identifies which objects in the view exist in the base layer (rootObjectIds)
-2. For referenced objects, generates their D2 representation including labels from the base graph
-3. Finds relationships between view objects in the base graph and includes them
-4. Inserts the generated content at the earliest reference position
-5. Removes the original reference lines that were replaced
-
 The range operation system allows merging overlapping replacements and insertions while preserving source positions.
 
-### 3. Main (main.go)
+### 4. Main (main.go)
 
 Entry point and CLI handling:
 
@@ -106,6 +110,14 @@ When a view layer contains a line like `entityName`, it's a reference to an enti
 
 Objects are identified by their full path from root (e.g., "parent.child.grandchild"). The `getAbsoluteId()` function traverses the parent chain to build this path.
 
+### Explicit vs Implicit References
+
+An object is "explicit" if it appears as the final element of a reference path. When you write `parent.child`:
+- `child` is explicit (it's the target of the reference)
+- `parent` is implicit (created only as a container)
+
+The processor detects this by comparing each object's reference path length to its depth. Implicit objects are filtered out, and their children's IDs are adjusted accordingly.
+
 ### Range Operations
 
 The AST provides byte ranges for every element. The exporter uses these ranges to:
@@ -120,7 +132,8 @@ Tests use table-driven patterns with inline D2 content as strings. The `go-cmp` 
 
 Test files:
 
--   `parser_test.go` - Tests view detection and entity extraction
+-   `compile/parser_test.go` - Tests view detection and entity extraction
+-   `d2view/processor_test.go` - Tests view processing and implicit parent filtering
 -   `exporter_test.go` - Tests view content generation and replacement
 -   `main_test.go` - Integration tests
 

@@ -136,11 +136,9 @@ func getLayerDefinition(view d2view.View) string {
 }
 
 // getEdgeD2Representation returns the D2 language representation of the given edge.
-func getEdgeD2Representation(edge *d2graph.Edge) string {
+func getEdgeD2Representation(edge *d2view.Edge) string {
 	var builder strings.Builder
-	srcId := compile.GetAbsoluteId(edge.Src)
-	dstId := compile.GetAbsoluteId(edge.Dst)
-	builder.WriteString(fmt.Sprintf("%s ", srcId))
+	builder.WriteString(fmt.Sprintf("%s ", edge.Src))
 
 	if edge.SrcArrow {
 		builder.WriteString("<")
@@ -156,10 +154,10 @@ func getEdgeD2Representation(edge *d2graph.Edge) string {
 	if edge.DstArrow {
 		builder.WriteString(">")
 	}
-	builder.WriteString(fmt.Sprintf(" %s", dstId))
+	builder.WriteString(fmt.Sprintf(" %s", edge.Dst))
 
-	if edge.Label.Value != "" {
-		builder.WriteString(fmt.Sprintf(": \"%s\"", edge.Label.Value))
+	if edge.D2Edge != nil && edge.D2Edge.Label.Value != "" {
+		builder.WriteString(fmt.Sprintf(": \"%s\"", edge.D2Edge.Label.Value))
 	}
 
 	builder.WriteString("\n")

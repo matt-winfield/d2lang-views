@@ -139,8 +139,7 @@ c: "Entity C"
 
 layers: {
     view1: {
-        a
-        a.b: "Nested B"
+        b: "Nested B"
         c: "Entity C"
     }
 }
@@ -267,10 +266,7 @@ layers: {
 
 layers: {
     view1: {
-        a
-        a.b
-        a.b.c
-        a.b.c.d: "Deep"
+        d: "Deep"
     }
 }
 `,
@@ -382,9 +378,7 @@ layers: {
 
     view2: {
         first: "First Thing"
-        second: "Second Thing"
-        second.something
-        first -> second
+        something
     }
 
     not_a_view {
@@ -507,10 +501,8 @@ b: {
 
 layers: {
     view1: {
-        a
-        a.x: "X in A"
-        b
-        b.x: "X in B"
+        x: "X in A"
+        x: "X in B"
     }
 }
 `,
@@ -745,10 +737,9 @@ parent.child1 -> parent.child2
 
 layers: {
     view1: {
-        parent
-        parent.child1: "Child 1"
-        parent.child2: "Child 2"
-        parent.child1 -> parent.child2
+        child1: "Child 1"
+        child2: "Child 2"
+        child1 -> child2
     }
 }
 `,
@@ -794,6 +785,215 @@ layers: {
         b <- c
         c <-> d
         a -- d
+    }
+}
+`,
+		},
+		{
+			name: "ImplicitParentFiltering_NestedChildOnly",
+			content: `parent: "Parent" {
+    child: "Child"
+}
+
+layers: {
+    view1: { #view
+        parent.child
+    }
+}
+`,
+			expected: `parent: "Parent" {
+    child: "Child"
+}
+
+layers: {
+    view1: {
+        child: "Child"
+    }
+}
+`,
+		},
+		{
+			name: "ImplicitParentFiltering_ExplicitParentAndChild",
+			content: `parent: "Parent" {
+    child: "Child"
+}
+
+layers: {
+    view1: { #view
+        parent
+        parent.child
+    }
+}
+`,
+			expected: `parent: "Parent" {
+    child: "Child"
+}
+
+layers: {
+    view1: {
+        parent: "Parent"
+        parent.child: "Child"
+    }
+}
+`,
+		},
+		{
+			name: "ImplicitParentFiltering_DeeplyNestedWithExplicitRoot",
+			content: `a: "A" {
+    b: "B" {
+        c: "C" {
+            d: "D"
+        }
+    }
+}
+
+layers: {
+    view1: { #view
+        a
+        a.b.c.d
+    }
+}
+`,
+			expected: `a: "A" {
+    b: "B" {
+        c: "C" {
+            d: "D"
+        }
+    }
+}
+
+layers: {
+    view1: {
+        a: "A"
+        a.d: "D"
+    }
+}
+`,
+		},
+		{
+			name: "ImplicitParentFiltering_MultipleChildrenSameParent",
+			content: `parent: "Parent" {
+    child1: "Child 1"
+    child2: "Child 2"
+    child3: "Child 3"
+}
+
+parent.child1 -> parent.child2
+
+layers: {
+    view1: { #view
+        parent.child1
+        parent.child2
+        parent.child3
+    }
+}
+`,
+			expected: `parent: "Parent" {
+    child1: "Child 1"
+    child2: "Child 2"
+    child3: "Child 3"
+}
+
+parent.child1 -> parent.child2
+
+layers: {
+    view1: {
+        child1: "Child 1"
+        child2: "Child 2"
+        child3: "Child 3"
+        child1 -> child2
+    }
+}
+`,
+		},
+		{
+			name: "ImplicitParentFiltering_EdgeBetweenNestedAndTopLevel",
+			content: `toplevel: "Top Level"
+parent: "Parent" {
+    nested: "Nested"
+}
+
+parent.nested -> toplevel
+
+layers: {
+    view1: { #view
+        parent.nested
+        toplevel
+    }
+}
+`,
+			expected: `toplevel: "Top Level"
+parent: "Parent" {
+    nested: "Nested"
+}
+
+parent.nested -> toplevel
+
+layers: {
+    view1: {
+        nested: "Nested"
+        toplevel: "Top Level"
+        nested -> toplevel
+    }
+}
+`,
+		},
+		{
+			name: "ImplicitParentFiltering_PartialHierarchyExplicit",
+			content: `a: "A" {
+    b: "B" {
+        c: "C"
+    }
+}
+
+layers: {
+    view1: { #view
+        a
+        a.b
+        a.b.c
+    }
+}
+`,
+			expected: `a: "A" {
+    b: "B" {
+        c: "C"
+    }
+}
+
+layers: {
+    view1: {
+        a: "A"
+        a.b: "B"
+        a.b.c: "C"
+    }
+}
+`,
+		},
+		{
+			name: "ImplicitParentFiltering_MiddleAncestorExplicit",
+			content: `a: "A" {
+    b: "B" {
+        c: "C"
+    }
+}
+
+layers: {
+    view1: { #view
+        a.b
+        a.b.c
+    }
+}
+`,
+			expected: `a: "A" {
+    b: "B" {
+        c: "C"
+    }
+}
+
+layers: {
+    view1: {
+        b: "B"
+        b.c: "C"
     }
 }
 `,

@@ -57,12 +57,14 @@ layers: {
 The tool:
 
 - Expands entity references to include their labels
-- Automatically includes parent entities for nested references
+- Only includes explicitly referenced entities (implicit parents are filtered out)
 - Copies relationships where both endpoints are in the view
 
 ## Examples
 
 ### Nested Entities
+
+When referencing nested entities, only explicitly listed entities are included. Implicit parent containers are filtered out:
 
 ```d2
 system: {
@@ -84,7 +86,42 @@ Generates:
 
 ```d2
 layers: {
+    auth_view: {
+        api: "API Gateway"
+        auth: "Auth Service"
+        api -> auth
+    }
+}
+```
+
+Notice that `system` is not included because it wasn't explicitly referenced - only `system.api` and `system.auth` were listed. The nested entities become top-level in the view.
+
+### Including Parent Containers
+
+If you want to preserve the parent container, explicitly include it:
+
+```d2
+system: {
+    api: "API Gateway"
+    auth: "Auth Service"
+}
+
+system.api -> system.auth
+
+layers: {
     auth_view: { #view
+        system
+        system.api
+        system.auth
+    }
+}
+```
+
+Generates:
+
+```d2
+layers: {
+    auth_view: {
         system
         system.api: "API Gateway"
         system.auth: "Auth Service"
@@ -140,16 +177,18 @@ layers: {
 
 - Automatic entity expansion with labels
 - Relationship copying between referenced entities
-- Support for nested entities
+- Support for nested entities (with implicit parent filtering)
+- Extract nested children without their parent containers
 - Custom view layer names
 - Mix referenced and new entities in views
 
 ## Roadmap
 
-- [ ] Allow including nested children without the parent (e.g. include `parent.child` without `parent`).
+- [x] Allow including nested children without the parent (e.g. include `parent.child` without `parent`).
 - [ ] Bring in other properties of entities (styles, classes, etc) from the base diagram.
 - [ ] Support `# include class=<class-name>` to include entities of a specific class in the view.
 - [ ] Support wildcard references `# include pattern=something.*` to include multiple entities matching a pattern.
+- [ ] Include comments around the generated view definitions for clarity.
 - [ ] Automatically compile the generated view diagrams using the D2 CLI.
 - [ ] Watch mode to monitor changes in the source diagram and regenerate views automatically.
 
