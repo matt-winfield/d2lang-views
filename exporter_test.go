@@ -41,9 +41,8 @@ b: "Entity B"
 a -> b
 
 layers: {
-    view1: { #view
+    view1: {
         a: "Entity A"
-
     }
 }
 `
@@ -81,7 +80,20 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "a: \"Entity A\"\nb: \"Entity B\"\nc: \"Entity C\"\n\nlayers: {\n    view1: { #view\n        a: \"Entity A\"\n\n    }\n    view2: { #view\n        b: \"Entity B\"\n        c: \"Entity C\"\n\n\n    }\n}\n"
+	expected := `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+layers: {
+    view1: {
+        a: "Entity A"
+    }
+    view2: {
+        b: "Entity B"
+        c: "Entity C"
+    }
+}
+`
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
@@ -163,7 +175,15 @@ layers: {
 	}
 
 	// Full statement "a: Custom Label" is replaced with new content
-	expected := "a: \"Entity A\"\nb: \"Entity B\"\n\nlayers: {\n    view1: { #view\n        a: \"Custom Label\"\n\n    }\n}\n"
+	expected := `a: "Entity A"
+b: "Entity B"
+
+layers: {
+    view1: {
+        a: "Custom Label"
+    }
+}
+`
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
@@ -196,7 +216,19 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "a: {\n    b: \"Nested B\"\n}\nc: \"Entity C\"\n\nlayers: {\n    view1: { #view\n        a\n        a.b: \"Nested B\"\n        c: \"Entity C\"\n\n\n    }\n}\n"
+	expected := `a: {
+    b: "Nested B"
+}
+c: "Entity C"
+
+layers: {
+    view1: {
+        a
+        a.b: "Nested B"
+        c: "Entity C"
+    }
+}
+`
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
@@ -227,7 +259,15 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "x: \"X\"\ny: \"Y\"\n\nlayers: {\n    view1: {\n        # view\n        x: \"X\"\n\n    }\n}\n"
+	expected := `x: "X"
+y: "Y"
+
+layers: {
+    view1: {
+        x: "X"
+    }
+}
+`
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
@@ -261,7 +301,19 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "# This is a comment\na: \"Entity A\"\nb: \"Entity B\"\n\n# Another comment\na -> b: connection\n\nlayers: {\n    view1: { #view\n        a: \"Entity A\"\n\n    }\n}\n"
+	expected := `# This is a comment
+a: "Entity A"
+b: "Entity B"
+
+# Another comment
+a -> b: connection
+
+layers: {
+    view1: {
+        a: "Entity A"
+    }
+}
+`
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
@@ -292,7 +344,15 @@ layers: {
 	}
 
 	// Only 'a' should be included since 'missing' is not in root
-	expected := "a: \"Entity A\"\n\nlayers: {\n    view1: { #view\n        a: \"Entity A\"\n\n        missing\n    }\n}\n"
+	expected := `a: "Entity A"
+
+layers: {
+    view1: {
+        a: "Entity A"
+        missing
+    }
+}
+`
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
@@ -323,7 +383,16 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "server: \"API Server\"\ndatabase: \"PostgreSQL\"\n\nlayers: {\n    backend: \"Backend Architecture\" { #view\n        server: \"API Server\"\n        database: \"PostgreSQL\"\n\n\n    }\n}\n"
+	expected := `server: "API Server"
+database: "PostgreSQL"
+
+layers: {
+    backend: "Backend Architecture" {
+        server: "API Server"
+        database: "PostgreSQL"
+    }
+}
+`
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
@@ -358,7 +427,23 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "a: {\n    b: {\n        c: {\n            d: \"Deep\"\n        }\n    }\n}\n\nlayers: {\n    view1: { #view\n        a\n        a.b\n        a.b.c\n        a.b.c.d: \"Deep\"\n\n    }\n}\n"
+	expected := `a: {
+    b: {
+        c: {
+            d: "Deep"
+        }
+    }
+}
+
+layers: {
+    view1: {
+        a
+        a.b
+        a.b.c
+        a.b.c.d: "Deep"
+    }
+}
+`
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
@@ -394,7 +479,20 @@ layers: {
 	}
 
 	// All content is inserted with proper indentation, original references are removed
-	expected := "client: \"Web Client\"\nserver: \"API Server\"\ndatabase: \"PostgreSQL\"\ncache: \"Redis\"\n\nlayers: {\n    view1: { #view\n        client: \"Web Client\"\n        server: \"API Server\"\n        database: \"PostgreSQL\"\n        cache: \"Redis\"\n\n\n\n\n    }\n}\n"
+	expected := `client: "Web Client"
+server: "API Server"
+database: "PostgreSQL"
+cache: "Redis"
+
+layers: {
+    view1: {
+        client: "Web Client"
+        server: "API Server"
+        database: "PostgreSQL"
+        cache: "Redis"
+    }
+}
+`
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
@@ -436,13 +534,12 @@ database: "PostgreSQL"
 cache: "Redis"
 
 layers: {
-    view1: { #view
+    view1: {
         client: "Web Client"
         server: "API Server"
         database: "PostgreSQL"
         cache: "Redis"
-
-
+        something-else
         database -> cache
         database -> something-else
     }
@@ -502,21 +599,17 @@ first -> second
 third
 
 layers: {
-    custom: "Custom Name" { #view
+    custom: "Custom Name" {
         first: "First Thing"
         second: "Second Thing"
         first -> second
-
-
     }
 
-    view2 {
-        # view
+    view2: {
         first: "First Thing"
         second: "Second Thing"
-        first -> second
-
         second.something
+        first -> second
     }
 
     not_a_view {
@@ -524,8 +617,9 @@ layers: {
         second
     }
 
-    default: { #view
+    default: {
         first: "First Thing"
+        SomethingElse
         first -> SomethingElse
     }
 }`
@@ -539,7 +633,7 @@ func TestReplaceViewLayers_EmptyView(t *testing.T) {
 	content := `a: "Entity A"
 
 layers: {
-    view1: { #view
+    view1: {
     }
 }
 `
@@ -599,7 +693,26 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "a: \"Entity A\"\nb: \"Entity B\"\nc: \"Entity C\"\n\nlayers: {\n    view1: { #view\n        a: \"Entity A\"\n\n    }\n    layer1: {\n        b\n    }\n    view2: { #view\n        c: \"Entity C\"\n\n    }\n    layer2: {\n        a\n        b\n    }\n}\n"
+	expected := `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+layers: {
+    view1: {
+        a: "Entity A"
+    }
+    layer1: {
+        b
+    }
+    view2: {
+        c: "Entity C"
+    }
+    layer2: {
+        a
+        b
+    }
+}
+`
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
@@ -630,7 +743,16 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "a\nb: \"Entity B\"\n\nlayers: {\n    view1: { #view\n        a\n        b: \"Entity B\"\n\n\n    }\n}\n"
+	expected := `a
+b: "Entity B"
+
+layers: {
+    view1: {
+        a
+        b: "Entity B"
+    }
+}
+`
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
@@ -665,7 +787,22 @@ layers: {
 		t.Fatalf("replaceViewLayers failed: %v", err)
 	}
 
-	expected := "a: {\n    x: \"X in A\"\n}\nb: {\n    x: \"X in B\"\n}\n\nlayers: {\n    view1: { #view\n        a\n        a.x: \"X in A\"\n        b\n        b.x: \"X in B\"\n\n\n    }\n}\n"
+	expected := `a: {
+    x: "X in A"
+}
+b: {
+    x: "X in B"
+}
+
+layers: {
+    view1: {
+        a
+        a.x: "X in A"
+        b
+        b.x: "X in B"
+    }
+}
+`
 	if diff := cmp.Diff(expected, result); diff != "" {
 		t.Errorf("unexpected result (-expected +got):\n%s", diff)
 	}
@@ -720,12 +857,10 @@ b: "Entity B"
 a -> b
 
 layers: {
-    view1: { #view
+    view1: {
         a: "Entity A"
         b: "Entity B"
         a -> b
-
-
     }
 }
 `
@@ -767,12 +902,10 @@ b: "Entity B"
 a <- b
 
 layers: {
-    view1: { #view
+    view1: {
         a: "Entity A"
         b: "Entity B"
         a <- b
-
-
     }
 }
 `
@@ -814,12 +947,10 @@ b: "Entity B"
 a <-> b
 
 layers: {
-    view1: { #view
+    view1: {
         a: "Entity A"
         b: "Entity B"
         a <-> b
-
-
     }
 }
 `
@@ -861,12 +992,10 @@ b: "Entity B"
 a -- b
 
 layers: {
-    view1: { #view
+    view1: {
         a: "Entity A"
         b: "Entity B"
         a -- b
-
-
     }
 }
 `
@@ -908,12 +1037,10 @@ b: "Entity B"
 a -> b: "connection label"
 
 layers: {
-    view1: { #view
+    view1: {
         a: "Entity A"
         b: "Entity B"
         a -> b: "connection label"
-
-
     }
 }
 `
@@ -960,11 +1087,9 @@ a -> b
 b -> c
 
 layers: {
-    view1: { #view
+    view1: {
         a: "Entity A"
         c: "Entity C"
-
-
     }
 }
 `
@@ -1010,14 +1135,12 @@ a -> b: "second"
 a <- b: "third"
 
 layers: {
-    view1: { #view
+    view1: {
         a: "Entity A"
         b: "Entity B"
         a -> b: "first"
         a -> b: "second"
         a <- b: "third"
-
-
     }
 }
 `
@@ -1063,13 +1186,11 @@ layers: {
 parent.child1 -> parent.child2
 
 layers: {
-    view1: { #view
+    view1: {
         parent
         parent.child1: "Child 1"
         parent.child2: "Child 2"
         parent.child1 -> parent.child2
-
-
     }
 }
 `
@@ -1123,7 +1244,7 @@ c <-> d
 a -- d
 
 layers: {
-    view1: { #view
+    view1: {
         a: "Entity A"
         b: "Entity B"
         c: "Entity C"
@@ -1132,10 +1253,6 @@ layers: {
         b <- c
         c <-> d
         a -- d
-
-
-
-
     }
 }
 `

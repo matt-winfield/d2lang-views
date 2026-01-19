@@ -22,8 +22,10 @@ func ProcessViews(viewLayers []*d2graph.Graph, graph *d2graph.Graph) []View {
 func processView(layer *d2graph.Graph, graph *d2graph.Graph) View {
 	return View{
 		Name:    layer.Name,
+		Label:   layer.Root.Label.Value,
 		Edges:   processViewEdges(layer, graph),
 		Objects: processViewObjects(layer, graph),
+		Layer:   layer,
 	}
 }
 
@@ -32,21 +34,26 @@ func processViewObjects(layer *d2graph.Graph, graph *d2graph.Graph) []*Object {
 	objects := make([]*Object, 0, len(layer.Objects))
 
 	for _, obj := range layer.Objects {
-		baseObj, err := compile.FindObjectById(graph, compile.GetAbsoluteId(obj))
-		if err != nil {
-			baseObj = nil
-		}
-
-		viewObj := &Object{
-			BaseObject: baseObj,
-			ViewObject: obj,
-			ID:         obj.ID,
-			Label:      GetLabel(obj, baseObj),
-		}
+		viewObj := processViewObject(obj, graph)
 		objects = append(objects, viewObj)
 	}
 
 	return objects
+}
+
+func processViewObject(obj *d2graph.Object, graph *d2graph.Graph) *Object {
+	baseObj, err := compile.FindObjectById(graph, compile.GetAbsoluteId(obj))
+	if err != nil {
+		baseObj = nil
+	}
+
+	viewObj := &Object{
+		BaseObject: baseObj,
+		ViewObject: obj,
+		ID:         obj.ID,
+		Label:      GetLabel(obj, baseObj),
+	}
+	return viewObj
 }
 
 // GetLabel returns the label to use for the view object.

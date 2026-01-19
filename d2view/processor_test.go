@@ -1,6 +1,7 @@
 package d2view
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -15,6 +16,7 @@ func TestProcessViews(t *testing.T) {
 		expectedObjectsPerView [][]struct {
 			id    string
 			label string
+			ida   []string
 		}
 	}{
 		{
@@ -31,9 +33,10 @@ layers: {
 			expectedObjectsPerView: [][]struct {
 				id    string
 				label string
+				ida   []string
 			}{
 				{
-					{id: "a", label: ""},
+					{id: "a", label: "", ida: []string{"a"}},
 				},
 			},
 		},
@@ -52,9 +55,10 @@ layers: {
 			expectedObjectsPerView: [][]struct {
 				id    string
 				label string
+				ida   []string
 			}{
 				{
-					{id: "a", label: "Node A"},
+					{id: "a", label: "Node A", ida: []string{"a"}},
 				},
 			},
 		},
@@ -73,9 +77,10 @@ layers: {
 			expectedObjectsPerView: [][]struct {
 				id    string
 				label string
+				ida   []string
 			}{
 				{
-					{id: "a", label: "View Node A"},
+					{id: "a", label: "View Node A", ida: []string{"a"}},
 				},
 			},
 		},
@@ -94,9 +99,10 @@ layers: {
 			expectedObjectsPerView: [][]struct {
 				id    string
 				label string
+				ida   []string
 			}{
 				{
-					{id: "a", label: "View Node A"},
+					{id: "a", label: "View Node A", ida: []string{"a"}},
 				},
 			},
 		},
@@ -115,11 +121,12 @@ layers: {
 			expectedObjectsPerView: [][]struct {
 				id    string
 				label string
+				ida   []string
 			}{
 				{
-					{id: "a", label: ""},
-					{id: "extra", label: ""},
-					{id: "extra-with-label", label: "Extra Node"},
+					{id: "a", label: "", ida: []string{"a"}},
+					{id: "extra", label: "", ida: []string{"extra"}},
+					{id: "extra-with-label", label: "Extra Node", ida: []string{"extra-with-label"}},
 				},
 			},
 		},
@@ -140,12 +147,13 @@ layers: {
 			expectedObjectsPerView: [][]struct {
 				id    string
 				label string
+				ida   []string
 			}{
 				{
-					{id: "a", label: ""},
+					{id: "a", label: "", ida: []string{"a"}},
 				},
 				{
-					{id: "b", label: ""},
+					{id: "b", label: "", ida: []string{"b"}},
 				},
 			},
 		},
@@ -187,6 +195,9 @@ layers: {
 					if views[i].Objects[j].Label != expectedObj.label {
 						t.Fatalf("expected object Label '%s', got '%s'", expectedObj.label, views[i].Objects[j].Label)
 					}
+					if !reflect.DeepEqual(views[i].Objects[j].StringIDA(), expectedObj.ida) {
+						t.Fatalf("expected object StringIDA() '%v', got '%v'", expectedObj.ida, views[i].Objects[j].StringIDA())
+					}
 				}
 			}
 		})
@@ -201,6 +212,7 @@ func TestProcessViews_WithRelationships(t *testing.T) {
 		expectedObjectsPerView [][]struct {
 			id    string
 			label string
+			ida   []string
 		}
 		expectedEdgesPerView [][]struct {
 			src      string
@@ -225,10 +237,11 @@ layers: {
 			expectedObjectsPerView: [][]struct {
 				id    string
 				label string
+				ida   []string
 			}{
 				{
-					{id: "a", label: ""},
-					{id: "b", label: ""},
+					{id: "a", label: "", ida: []string{"a"}},
+					{id: "b", label: "", ida: []string{"b"}},
 				},
 			},
 			expectedEdgesPerView: [][]struct {
@@ -258,10 +271,11 @@ layers: {
 			expectedObjectsPerView: [][]struct {
 				id    string
 				label string
+				ida   []string
 			}{
 				{
-					{id: "a", label: ""},
-					{id: "b", label: ""},
+					{id: "a", label: "", ida: []string{"a"}},
+					{id: "b", label: "", ida: []string{"b"}},
 				},
 			},
 			expectedEdgesPerView: [][]struct {
@@ -296,12 +310,13 @@ layers: {
 			expectedObjectsPerView: [][]struct {
 				id    string
 				label string
+				ida   []string
 			}{
 				{
-					{id: "a", label: "Node A"},
-					{id: "b", label: "Node B"},
-					{id: "c", label: "Node C"},
-					{id: "d", label: ""},
+					{id: "a", label: "Node A", ida: []string{"a"}},
+					{id: "b", label: "Node B", ida: []string{"a", "b"}},
+					{id: "c", label: "Node C", ida: []string{"a", "b", "c"}},
+					{id: "d", label: "", ida: []string{"d"}},
 				},
 			},
 			expectedEdgesPerView: [][]struct {
@@ -334,12 +349,13 @@ layers: {
 			expectedObjectsPerView: [][]struct {
 				id    string
 				label string
+				ida   []string
 			}{
 				{
-					{id: "a", label: ""},
-					{id: "b", label: ""},
-					{id: "c", label: ""},
-					{id: "d", label: ""},
+					{id: "a", label: "", ida: []string{"a"}},
+					{id: "b", label: "", ida: []string{"b"}},
+					{id: "c", label: "", ida: []string{"c"}},
+					{id: "d", label: "", ida: []string{"d"}},
 				},
 			},
 			expectedEdgesPerView: [][]struct {
@@ -389,6 +405,9 @@ layers: {
 					}
 					if views[i].Objects[j].Label != expectedObj.label {
 						t.Fatalf("expected object Label '%s', got '%s'", expectedObj.label, views[i].Objects[j].Label)
+					}
+					if !reflect.DeepEqual(views[i].Objects[j].StringIDA(), expectedObj.ida) {
+						t.Fatalf("expected object StringIDA() '%v', got '%v'", expectedObj.ida, views[i].Objects[j].StringIDA())
 					}
 				}
 

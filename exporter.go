@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/fatih/color"
 	"github.com/matt-winfield/d2lang-views/compile"
 	"github.com/matt-winfield/d2lang-views/d2view"
 	"oss.terrastruct.com/d2/d2ast"
@@ -21,156 +20,119 @@ func replaceViewLayers(reader io.Reader, graph *d2graph.Graph, rootObjectIds []s
 	}
 	source := string(contentBytes)
 
-	views := compile.GetViewsNodes(graph)
+	viewLayers := compile.GetViewsNodes(graph)
+	views := d2view.ProcessViews(viewLayers, graph)
 	var operations []rangeOperation
 	for _, view := range views {
-		viewResult := generateViewContent(view, graph, rootObjectIds, source)
-		if viewResult.newContent == "" {
-			continue
+		viewContentRange, err := getViewContentRange(view.Layer, graph, source)
+		if err != nil {
+			return "", err
 		}
-
-		// Apply indentation to the new content
-		indentedContent := applyIndentation(viewResult.newContent, viewResult.indentation)
-
-		// Insert new content at the earliest reference position (insertByte)
-		// This is a pure insertion (start == end), not a replacement
-		insertRange := d2ast.Range{
-			Start: d2ast.Position{Byte: viewResult.insertByte},
-			End:   d2ast.Position{Byte: viewResult.insertByte},
-		}
+		newContent := generateViewContent(view)
 		operations = append(operations, rangeOperation{
-			r:           insertRange,
-			replacement: indentedContent,
+			r:           viewContentRange.r,
+			replacement: applyIndentation(newContent, viewContentRange.indentation, true),
 		})
-
-		// Remove all replaced ranges (these are separate from the insertion point)
-		for _, r := range viewResult.replacedRanges {
-			operations = append(operations, rangeOperation{r: r})
-		}
 	}
 
 	return applyRangeOperations(source, operations), nil
 }
 
-type viewReplacementResult struct {
-	// insertByte is the byte position in the source where the new content should be inserted.
-	insertByte int
-	// indentation is the whitespace prefix to prepend to each line of the new content.
+type viewContentRangeResult struct {
+	r           d2ast.Range
 	indentation string
-	newContent  string
-	// replacedRanges holds the ranges in the original source that were replaced with view content and should be removed.
-	replacedRanges []d2ast.Range
+}
+
+func getViewContentRange(view *d2graph.Graph, graph *d2graph.Graph, source string) (viewContentRangeResult, error) {
+	layersNode := getLayersAstNode(graph)
+	if layersNode == nil || layersNode.MapKey == nil || layersNode.MapKey.Value.Map == nil {
+		return viewContentRangeResult{}, fmt.Errorf("unable to find layers node in graph AST")
+	}
+
+	for _, node := range layersNode.MapKey.Value.Map.Nodes {
+		mapKey := node.MapKey
+		if mapKey == nil || mapKey.Key == nil {
+			continue
+		}
+
+		if mapKey.Key.StringIDA()[0] == view.Name {
+			indentation := getIndentationAtByte(source, node.MapKey.Range.Start.Byte)
+
+			return viewContentRangeResult{
+				r:           node.MapKey.Range,
+				indentation: indentation,
+			}, nil
+		}
+	}
+
+	return viewContentRangeResult{}, fmt.Errorf("unable to find view content range for view %s", view.Name)
+}
+
+func getIndentationAtByte(source string, byteIndex int) string {
+	indentation := ""
+	if byteIndex < len(source) {
+		// Find the start of the line
+		lineStart := byteIndex
+		for lineStart > 0 && source[lineStart-1] != '\n' {
+			lineStart--
+		}
+		// Collect whitespace from lineStart to startByte
+		for i := lineStart; i < byteIndex && i < len(source); i++ {
+			if source[i] == ' ' || source[i] == '\t' {
+				indentation += string(source[i])
+			} else {
+				break
+			}
+		}
+	}
+	return indentation
+}
+
+func getLayersAstNode(graph *d2graph.Graph) *d2ast.MapNodeBox {
+	if graph == nil || graph.AST == nil {
+		return nil
+	}
+
+	for _, node := range graph.AST.Nodes {
+		if node.MapKey != nil && node.MapKey.Key != nil && node.MapKey.Key.StringIDA()[0] == "layers" {
+			return &node
+		}
+	}
+
+	return nil
 }
 
 // generateViewContent generates D2 language content for the given view node
-//
-// view is the D2 graph node representing the view
-// graph is the full D2 graph (needed for getting object info that isn't included in the view)
-// rootObjectIds is a list of entity IDs from the base layer to include in the view
-// source is the original D2 source content (used to find line endings)
-func generateViewContent(view *d2graph.Graph, graph *d2graph.Graph, rootObjectIds []string, source string) viewReplacementResult {
+func generateViewContent(view d2view.View) string {
 	var builder strings.Builder
-	replacedRanges := make([]d2ast.Range, 0)
 
-	// earliestInsertionByte tracks the start of the line containing the earliest reference
-	// This is where the new view content will be inserted
-	earliestInsertionByte := len(source)
-	// indentation tracks the indentation level at the earliest insertion point
-	indentation := ""
-
+	builder.WriteString(getLayerDefinition(view))
 	for _, object := range view.Objects {
-		objectId := compile.GetAbsoluteId(object)
-		if slices.Contains(rootObjectIds, objectId) {
-			builder.WriteString(getObjectD2Representation(object, graph))
-			res := checkObjectReferences(object, rootObjectIds, source)
-
-			if res.earliestInsertionByte < earliestInsertionByte {
-				earliestInsertionByte = res.earliestInsertionByte
-				indentation = res.insertPointIndentation
-			}
-			replacedRanges = append(replacedRanges, res.rangesToReplace...)
-		}
+		builder.WriteString("    ")
+		builder.WriteString(getObjectD2Representation(object))
 	}
 
-	for _, edge := range graph.Edges {
-		src := compile.GetAbsoluteId(edge.Src)
-		dst := compile.GetAbsoluteId(edge.Dst)
-
-		if viewContainsObjectId(view, src) && viewContainsObjectId(view, dst) {
-			// Both source and destination are in the view, include the edge
-			builder.WriteString(getEdgeD2Representation(edge))
-		}
+	for _, edge := range view.Edges {
+		builder.WriteString("    ")
+		builder.WriteString(getEdgeD2Representation(edge))
 	}
 
-	return viewReplacementResult{
-		newContent:     builder.String(),
-		replacedRanges: replacedRanges,
-		insertByte:     earliestInsertionByte,
-		indentation:    indentation,
-	}
+	builder.WriteString("}")
+
+	return builder.String()
 }
 
-type objectReferencesResult struct {
-	rangesToReplace        []d2ast.Range
-	earliestInsertionByte  int
-	insertPointIndentation string
-}
+func getLayerDefinition(view d2view.View) string {
+	var builder strings.Builder
 
-// checkObjectReferences checks the the references of the given object, returning any that should be replaced in the source code.
-// It will remove any references that point to root objects only (i.e. not defining new objects implicitly).
-// It also tracks the earliest insertion point for adding new content - the start of the line containing the earliest reference.
-func checkObjectReferences(object *d2graph.Object, rootObjectIds []string, source string) objectReferencesResult {
-	indentation := ""
-	earliestInsertionByte := len(source)
-	replacedRanges := make([]d2ast.Range, 0)
+	builder.WriteString(view.Name + ": ")
 
-	for _, reference := range object.References {
-		// Track the earliest line start position for insertion
-		lineStart := findLineStart(source, reference.Key.Range.Start.Byte)
-		if lineStart < earliestInsertionByte {
-			earliestInsertionByte = lineStart
-			// Extract indentation (whitespace between line start and reference)
-			indentation = source[lineStart:reference.Key.Range.Start.Byte]
-		}
-
-		// Any edges defined in a view should be kept
-		// View edges (relationships) are in addition to the base layer edges
-		if reference.InEdge() {
-			continue
-		}
-
-		// Check if the reference includes any non-root objects
-		// Skip (don't remove from source) references that include non-root objects
-		// Since those define new objects implicitly
-		containsNonRootObject := referenceContainsNonRootObject(&reference, rootObjectIds)
-		if containsNonRootObject {
-			continue
-		}
-
-		// Extend the range to the end of the line to capture the full statement
-		fullRange := extendRangeToEndOfLine(reference.Key.Range, source)
-		replacedRanges = append(replacedRanges, fullRange)
+	if (view.Label != "") && (view.Label != view.Name) {
+		builder.WriteString("\"" + view.Label + "\" ")
 	}
 
-	return objectReferencesResult{
-		rangesToReplace:        replacedRanges,
-		earliestInsertionByte:  earliestInsertionByte,
-		insertPointIndentation: indentation,
-	}
-}
-
-// referenceContainsNonRootObject checks if the given reference includes any non-root objects.
-func referenceContainsNonRootObject(reference *d2graph.Reference, rootObjectIds []string) bool {
-	containsNonRootObject := false
-	ida := reference.Key.StringIDA()
-	for i := range ida {
-		objectId := strings.Join(ida[:i+1], ".")
-		if !slices.Contains(rootObjectIds, objectId) {
-			containsNonRootObject = true
-			break
-		}
-	}
-	return containsNonRootObject
+	builder.WriteString("{\n")
+	return builder.String()
 }
 
 // getEdgeD2Representation returns the D2 language representation of the given edge.
@@ -204,44 +166,19 @@ func getEdgeD2Representation(edge *d2graph.Edge) string {
 	return builder.String()
 }
 
-// viewContainsObjectId checks if the given view contains an object with the specified absolute ID.
-func viewContainsObjectId(view *d2graph.Graph, objectId string) bool {
-	for _, obj := range view.Objects {
-		if compile.GetAbsoluteId(obj) == objectId {
-			return true
-		}
-	}
-	return false
-}
-
-// extendRangeToEndOfLine extends a range to the end of the line (newline character)
-// This captures the full statement including any label/value after the key
-func extendRangeToEndOfLine(r d2ast.Range, source string) d2ast.Range {
-	endByte := r.End.Byte
-	// Find the next newline from the end position
-	for endByte < len(source) && source[endByte] != '\n' {
-		endByte++
-	}
-	return d2ast.Range{
-		Path:  r.Path,
-		Start: r.Start,
-		End: d2ast.Position{
-			Line:   r.End.Line,
-			Column: r.End.Column + (endByte - r.End.Byte),
-			Byte:   endByte,
-		},
-	}
-}
-
 // applyIndentation prepends the given indentation to each line of the content.
 // This ensures all inserted content maintains proper indentation within the view.
-func applyIndentation(content string, indentation string) string {
+func applyIndentation(content string, indentation string, skipFirstLine bool) string {
 	if indentation == "" || content == "" {
 		return content
 	}
 	// Split content into lines, add indentation to each non-empty line
 	lines := strings.Split(content, "\n")
 	for i, line := range lines {
+		if skipFirstLine && i == 0 {
+			continue
+		}
+
 		// Don't add indentation to empty lines or the final empty line after trailing newline
 		if line != "" {
 			lines[i] = indentation + line
@@ -250,40 +187,15 @@ func applyIndentation(content string, indentation string) string {
 	return strings.Join(lines, "\n")
 }
 
-// findLineStart finds the byte position of the start of the line containing the given byte position.
-// It returns the position right after the previous newline (or 0 if at the start of the file).
-func findLineStart(source string, bytePos int) int {
-	if bytePos <= 0 {
-		return 0
-	}
-	// Search backwards for the newline
-	for i := bytePos - 1; i >= 0; i-- {
-		if source[i] == '\n' {
-			return i + 1
-		}
-	}
-	return 0
-}
-
 // getObjectD2Representation returns the D2 language representation of the given object.
-// object is the object from the view to represent.
-// graph is the full D2 graph (needed for getting the base layer object attributes, such as label).
-func getObjectD2Representation(object *d2graph.Object, graph *d2graph.Graph) string {
+func getObjectD2Representation(object *d2view.Object) string {
 	var builder strings.Builder
 
-	baseObject, err := compile.FindObjectById(graph, compile.GetAbsoluteId(object))
-	if err != nil {
-		// This object doesn't exist in the base graph
-		color.Yellow("%s", err)
-		return ""
-	}
-
-	objectId := compile.GetAbsoluteId(object)
-	label := d2view.GetLabel(object, baseObject)
+	objectId := strings.Join(object.StringIDA(), ".")
 	builder.WriteString(objectId)
-	if label != "" {
+	if object.Label != "" {
 		builder.WriteString(": \"")
-		builder.WriteString(label)
+		builder.WriteString(object.Label)
 		builder.WriteString("\"")
 	}
 	builder.WriteString("\n")
