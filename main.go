@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -35,13 +34,6 @@ func main() {
 	graph, _, err := compile.CompileD2(args.Source, reader)
 	checkErr(err, "Unable to compile D2 content")
 
-	graphJson, err := json.MarshalIndent(graph, "", "  ")
-	checkErr(err, "Unable to marshal AST to JSON")
-
-	graphOutputPath := getOutputFilePath(args.Source, args.Destination, "-graph.json")
-	err = os.WriteFile(graphOutputPath, graphJson, 0644)
-	checkErr(err, "Unable to write output file")
-
 	views := compile.GetViewsNodes(graph)
 	fmt.Printf("Found %d view nodes\n", len(views))
 
@@ -51,7 +43,7 @@ func main() {
 	viewContent, err := replaceViewLayers(sourceReader, graph, rootObjectIds)
 	checkErr(err, "Unable to replace view content")
 
-	viewOutputPath := getOutputFilePath(args.Source, args.Destination, "-with-views.d2")
+	viewOutputPath := getOutputFilePath(args.Source, args.Destination, "-views.d2")
 	err = os.WriteFile(viewOutputPath, []byte(viewContent), 0644)
 	checkErr(err, "Unable to write output file with views")
 
