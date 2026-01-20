@@ -8,11 +8,13 @@ import (
 	"github.com/alexflint/go-arg"
 	"github.com/fatih/color"
 	"github.com/matt-winfield/d2lang-views/compile"
+	"github.com/matt-winfield/d2lang-views/render"
 )
 
 var args struct {
 	Source      string `arg:"positional"`
 	Destination string `arg:"positional"`
+	Layout      string `arg:"-l,--layout" help:"layout engine to use (e.g., dagre, elk)"`
 }
 
 func main() {
@@ -47,7 +49,28 @@ func main() {
 	err = os.WriteFile(viewOutputPath, []byte(viewContent), 0644)
 	checkErr(err, "Unable to write output file with views")
 
-	color.Green("Successfully wrote output to %s", viewOutputPath)
+	color.Green("Successfully wrote D2 output to %s", viewOutputPath)
+
+	// Get all layer names for rendering (not just views)
+	var layerNames []string
+	for _, layer := range graph.Layers {
+		layerNames = append(layerNames, layer.Name)
+	}
+
+	// Create subfolder for SVG output (same name as output d2 file without extension)
+	svgOutputDir := getOutputFilePath(args.Source, args.Destination, "-views")
+	err = ensureDirExists(svgOutputDir)
+	checkErr(err, "Unable to create SVG output directory")
+
+	// Compile each layer to SVG using d2 CLI
+	err = render.RenderD2File(viewOutputPath, svgOutputDir+".svg", args.Layout)
+	checkErr(err, "Unable to compile layers to SVG")
+
+	for _, layerName := range layerNames {
+		color.Green("Successfully compiled layer '%s' to %s/%s.svg", layerName, svgOutputDir, layerName)
+	}
+
+	fmt.Printf("Compiled %d layers to SVG\n", len(layerNames))
 }
 
 // ensureDirExists checks if a directory exists at the given path,

@@ -189,7 +189,7 @@ layers: {
 - [ ] Support `# include class=<class-name>` to include entities of a specific class in the view.
 - [ ] Support wildcard references `# include pattern=something.*` to include multiple entities matching a pattern.
 - [ ] Include comments around the generated view definitions for clarity.
-- [ ] Automatically compile the generated view diagrams using the D2 CLI.
+- [x] Automatically compile the generated view diagrams using the D2 CLI.
 - [ ] Watch mode to monitor changes in the source diagram and regenerate views automatically.
 
 ## Development
