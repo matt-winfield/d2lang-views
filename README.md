@@ -185,7 +185,7 @@ layers: {
 ## Roadmap
 
 - [x] Allow including nested children without the parent (e.g. include `parent.child` without `parent`).
-- [ ] Bring in other properties of entities (styles, classes, etc) from the base diagram.
+- [x] Bring in other properties of entities (styles, classes, etc) from the base diagram.
 - [ ] Support `# include class=<class-name>` to include entities of a specific class in the view.
 - [ ] Support wildcard references `# include pattern=something.*` to include multiple entities matching a pattern.
 - [ ] Include comments around the generated view definitions for clarity.

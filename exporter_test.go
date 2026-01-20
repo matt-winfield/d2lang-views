@@ -998,6 +998,275 @@ layers: {
 }
 `,
 		},
+		{
+			name: "BaseLayerAttributes_BaseObjectAttributesPreserved",
+			content: `a: "A" {
+    shape: rectangle
+    icon: https://example.com/icon.svg
+    tooltip: "This is a tooltip"
+    link: https://example.com
+    width: 200
+    height: 100
+    near: top-center
+    direction: right
+    class: my-class
+    style: {
+        opacity: 0.8
+        stroke: "#00ff00"
+        fill: "#ff0000"
+        fill-pattern: dots
+        stroke-width: 2
+        stroke-dash: 5
+        border-radius: 10
+        shadow: true
+        3d: true
+        multiple: true
+        font: mono
+        font-size: 16
+        font-color: "#0000ff"
+        animated: true
+        bold: true
+        italic: true
+        underline: true
+        filled: true
+        double-border: true
+        text-transform: uppercase
+    }
+}
+
+layers: {
+    view1: { #view
+        a
+    }
+}
+`,
+			expected: `a: "A" {
+    shape: rectangle
+    icon: https://example.com/icon.svg
+    tooltip: "This is a tooltip"
+    link: https://example.com
+    width: 200
+    height: 100
+    near: top-center
+    direction: right
+    class: my-class
+    style: {
+        opacity: 0.8
+        stroke: "#00ff00"
+        fill: "#ff0000"
+        fill-pattern: dots
+        stroke-width: 2
+        stroke-dash: 5
+        border-radius: 10
+        shadow: true
+        3d: true
+        multiple: true
+        font: mono
+        font-size: 16
+        font-color: "#0000ff"
+        animated: true
+        bold: true
+        italic: true
+        underline: true
+        filled: true
+        double-border: true
+        text-transform: uppercase
+    }
+}
+
+layers: {
+    view1: {
+        a: "A" {
+            shape: rectangle
+            icon: https://example.com/icon.svg
+            tooltip: "This is a tooltip"
+            link: https://example.com
+            width: 200
+            height: 100
+            near: top-center
+            direction: right
+            class: my-class
+            style: {
+                opacity: 0.8
+                stroke: "#00ff00"
+                fill: "#ff0000"
+                fill-pattern: dots
+                stroke-width: 2
+                stroke-dash: 5
+                border-radius: 10
+                shadow: true
+                3d: true
+                multiple: true
+                font: mono
+                font-size: 16
+                font-color: "#0000ff"
+                animated: true
+                bold: true
+                italic: true
+                underline: true
+                filled: true
+                double-border: true
+                text-transform: uppercase
+            }
+        }
+    }
+}
+`,
+		},
+		{
+			name: "ViewLayerAttributes_OverridesBaseAttributes",
+			content: `a: "Base Label" {
+    shape: circle
+    style: {
+        fill: "#ff0000"
+        stroke: "#00ff00"
+    }
+}
+
+layers: {
+    view1: { #view
+        a: "View Label" {
+            shape: diamond
+            style: {
+                fill: "#0000ff"
+            }
+        }
+    }
+}
+`,
+			expected: `a: "Base Label" {
+    shape: circle
+    style: {
+        fill: "#ff0000"
+        stroke: "#00ff00"
+    }
+}
+
+layers: {
+    view1: {
+        a: "View Label" {
+            shape: diamond
+            style: {
+                stroke: "#00ff00"
+                fill: "#0000ff"
+            }
+        }
+    }
+}
+`,
+		},
+		{
+			name: "ViewLayerAttributes_AddsNewAttributes",
+			content: `a: "Entity A"
+
+layers: {
+    view1: { #view
+        a {
+            shape: hexagon
+            style: {
+                fill: "#ff0000"
+            }
+        }
+    }
+}
+`,
+			expected: `a: "Entity A"
+
+layers: {
+    view1: {
+        a: "Entity A" {
+            shape: hexagon
+            style: {
+                fill: "#ff0000"
+            }
+        }
+    }
+}
+`,
+		},
+		{
+			name: "ViewLayerAttributes_PartialStyleOverride",
+			content: `a: "A" {
+    style: {
+        fill: "#ff0000"
+        stroke: "#00ff00"
+        opacity: 0.5
+        bold: true
+    }
+}
+
+layers: {
+    view1: { #view
+        a {
+            style: {
+                fill: "#0000ff"
+                font-size: 20
+            }
+        }
+    }
+}
+`,
+			expected: `a: "A" {
+    style: {
+        fill: "#ff0000"
+        stroke: "#00ff00"
+        opacity: 0.5
+        bold: true
+    }
+}
+
+layers: {
+    view1: {
+        a: "A" {
+            style: {
+                opacity: 0.5
+                stroke: "#00ff00"
+                fill: "#0000ff"
+                font-size: 20
+                bold: true
+            }
+        }
+    }
+}
+`,
+		},
+		{
+			name: "ViewLayerAttributes_MultipleObjectsWithOverrides",
+			content: `a: "Entity A" {
+    shape: rectangle
+}
+b: "Entity B" {
+    shape: circle
+}
+
+layers: {
+    view1: { #view
+        a {
+            shape: diamond
+        }
+        b
+    }
+}
+`,
+			expected: `a: "Entity A" {
+    shape: rectangle
+}
+b: "Entity B" {
+    shape: circle
+}
+
+layers: {
+    view1: {
+        a: "Entity A" {
+            shape: diamond
+        }
+        b: "Entity B" {
+            shape: circle
+        }
+    }
+}
+`,
+		},
 	}
 
 	for _, tt := range tests {

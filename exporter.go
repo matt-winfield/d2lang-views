@@ -196,7 +196,283 @@ func getObjectD2Representation(object *d2view.Object) string {
 		builder.WriteString(object.Label)
 		builder.WriteString("\"")
 	}
+
+	attrs := getObjectAttributesRepresentation(object)
+	if attrs != "" {
+		builder.WriteString(" {\n")
+		builder.WriteString(attrs)
+		builder.WriteString("    }")
+	}
 	builder.WriteString("\n")
+
+	return builder.String()
+}
+
+// getObjectAttributesRepresentation returns the D2 representation of the object's attributes.
+// It merges attributes from both the base object and the view object, with view object
+// attributes taking precedence when explicitly set.
+// Returns an empty string if the object has no attributes to output.
+func getObjectAttributesRepresentation(object *d2view.Object) string {
+	base := object.BaseObject
+	view := object.ViewObject
+
+	// If neither object has attributes, return empty
+	if base == nil && view == nil {
+		return ""
+	}
+
+	var builder strings.Builder
+
+	// Object-level attributes - view takes precedence over base shape
+	if shape := getMergedScalar(getScalarIfExplicit(base, "shape"), getScalarIfExplicit(view, "shape")); shape != "" {
+		builder.WriteString(fmt.Sprintf("        shape: %s\n", shape))
+	}
+
+	if icon := getMergedIcon(base, view); icon != "" {
+		builder.WriteString(fmt.Sprintf("        icon: %s\n", icon))
+	}
+
+	if tooltip := getMergedScalar(getTooltip(base), getTooltip(view)); tooltip != "" {
+		builder.WriteString(fmt.Sprintf("        tooltip: \"%s\"\n", tooltip))
+	}
+
+	if link := getMergedScalar(getLink(base), getLink(view)); link != "" {
+		builder.WriteString(fmt.Sprintf("        link: %s\n", link))
+	}
+
+	if width := getMergedScalar(getWidth(base), getWidth(view)); width != "" {
+		builder.WriteString(fmt.Sprintf("        width: %s\n", width))
+	}
+
+	if height := getMergedScalar(getHeight(base), getHeight(view)); height != "" {
+		builder.WriteString(fmt.Sprintf("        height: %s\n", height))
+	}
+
+	if near := getMergedNear(base, view); near != "" {
+		builder.WriteString(fmt.Sprintf("        near: %s\n", near))
+	}
+
+	if direction := getMergedScalar(getDirection(base), getDirection(view)); direction != "" {
+		builder.WriteString(fmt.Sprintf("        direction: %s\n", direction))
+	}
+
+	// Classes - merge both sets
+	classes := getMergedClasses(base, view)
+	for _, class := range classes {
+		builder.WriteString(fmt.Sprintf("        class: %s\n", class))
+	}
+
+	// Style attributes - merge base and view styles
+	styleContent := getMergedStyleRepresentation(base, view)
+	if styleContent != "" {
+		builder.WriteString("        style: {\n")
+		builder.WriteString(styleContent)
+		builder.WriteString("        }\n")
+	}
+
+	return builder.String()
+}
+
+// getScalarIfExplicit returns the scalar value if it was explicitly set (has a MapKey).
+func getScalarIfExplicit(obj *d2graph.Object, attrType string) string {
+	if obj == nil {
+		return ""
+	}
+	switch attrType {
+	case "shape":
+		if obj.Shape.Value != "" && obj.Shape.MapKey != nil {
+			return obj.Shape.Value
+		}
+	case "direction":
+		if obj.Direction.Value != "" && obj.Direction.MapKey != nil {
+			return obj.Direction.Value
+		}
+	}
+	return ""
+}
+
+// getMergedScalar returns the view value if set, otherwise the base value.
+func getMergedScalar(baseVal, viewVal string) string {
+	if viewVal != "" {
+		return viewVal
+	}
+	return baseVal
+}
+
+func getTooltip(obj *d2graph.Object) string {
+	if obj != nil && obj.Tooltip != nil && obj.Tooltip.Value != "" {
+		return obj.Tooltip.Value
+	}
+	return ""
+}
+
+func getLink(obj *d2graph.Object) string {
+	if obj != nil && obj.Link != nil && obj.Link.Value != "" {
+		return obj.Link.Value
+	}
+	return ""
+}
+
+func getWidth(obj *d2graph.Object) string {
+	if obj != nil && obj.WidthAttr != nil && obj.WidthAttr.Value != "" {
+		return obj.WidthAttr.Value
+	}
+	return ""
+}
+
+func getHeight(obj *d2graph.Object) string {
+	if obj != nil && obj.HeightAttr != nil && obj.HeightAttr.Value != "" {
+		return obj.HeightAttr.Value
+	}
+	return ""
+}
+
+func getDirection(obj *d2graph.Object) string {
+	if obj != nil && obj.Direction.Value != "" && obj.Direction.MapKey != nil {
+		return obj.Direction.Value
+	}
+	return ""
+}
+
+// getMergedIcon returns the icon string, preferring the view object's icon if set, falling back to the base object's icon.
+func getMergedIcon(base, view *d2graph.Object) string {
+	if view != nil && view.Icon != nil {
+		return view.Icon.String()
+	}
+	if base != nil && base.Icon != nil {
+		return base.Icon.String()
+	}
+	return ""
+}
+
+func getMergedNear(base, view *d2graph.Object) string {
+	// View takes precedence
+	if view != nil && view.NearKey != nil {
+		var nearParts []string
+		for _, part := range view.NearKey.Path {
+			nearParts = append(nearParts, part.Unbox().ScalarString())
+		}
+		return strings.Join(nearParts, ".")
+	}
+	if base != nil && base.NearKey != nil {
+		var nearParts []string
+		for _, part := range base.NearKey.Path {
+			nearParts = append(nearParts, part.Unbox().ScalarString())
+		}
+		return strings.Join(nearParts, ".")
+	}
+	return ""
+}
+
+func getMergedClasses(base, view *d2graph.Object) []string {
+	classSet := make(map[string]struct{})
+	var classes []string
+
+	// Add base classes first
+	if base != nil {
+		for _, class := range base.Classes {
+			if _, exists := classSet[class]; !exists {
+				classSet[class] = struct{}{}
+				classes = append(classes, class)
+			}
+		}
+	}
+	// Add view classes (may override or add)
+	if view != nil {
+		for _, class := range view.Classes {
+			if _, exists := classSet[class]; !exists {
+				classSet[class] = struct{}{}
+				classes = append(classes, class)
+			}
+		}
+	}
+	return classes
+}
+
+// getMergedStyleRepresentation returns the D2 representation of merged style attributes.
+// View style attributes take precedence over base style attributes.
+func getMergedStyleRepresentation(base, view *d2graph.Object) string {
+	var builder strings.Builder
+
+	// Helper to get style scalar with view precedence
+	getStyleValue := func(baseStyle, viewStyle *d2graph.Scalar) string {
+		if viewStyle != nil && viewStyle.Value != "" {
+			return viewStyle.Value
+		}
+		if baseStyle != nil && baseStyle.Value != "" {
+			return baseStyle.Value
+		}
+		return ""
+	}
+
+	var baseStyle, viewStyle d2graph.Style
+	if base != nil {
+		baseStyle = base.Style
+	}
+	if view != nil {
+		viewStyle = view.Style
+	}
+
+	if val := getStyleValue(baseStyle.Opacity, viewStyle.Opacity); val != "" {
+		builder.WriteString(fmt.Sprintf("            opacity: %s\n", val))
+	}
+	if val := getStyleValue(baseStyle.Stroke, viewStyle.Stroke); val != "" {
+		builder.WriteString(fmt.Sprintf("            stroke: \"%s\"\n", val))
+	}
+	if val := getStyleValue(baseStyle.Fill, viewStyle.Fill); val != "" {
+		builder.WriteString(fmt.Sprintf("            fill: \"%s\"\n", val))
+	}
+	if val := getStyleValue(baseStyle.FillPattern, viewStyle.FillPattern); val != "" {
+		builder.WriteString(fmt.Sprintf("            fill-pattern: %s\n", val))
+	}
+	if val := getStyleValue(baseStyle.StrokeWidth, viewStyle.StrokeWidth); val != "" {
+		builder.WriteString(fmt.Sprintf("            stroke-width: %s\n", val))
+	}
+	if val := getStyleValue(baseStyle.StrokeDash, viewStyle.StrokeDash); val != "" {
+		builder.WriteString(fmt.Sprintf("            stroke-dash: %s\n", val))
+	}
+	if val := getStyleValue(baseStyle.BorderRadius, viewStyle.BorderRadius); val != "" {
+		builder.WriteString(fmt.Sprintf("            border-radius: %s\n", val))
+	}
+	if val := getStyleValue(baseStyle.Shadow, viewStyle.Shadow); val != "" {
+		builder.WriteString(fmt.Sprintf("            shadow: %s\n", val))
+	}
+	if val := getStyleValue(baseStyle.ThreeDee, viewStyle.ThreeDee); val != "" {
+		builder.WriteString(fmt.Sprintf("            3d: %s\n", val))
+	}
+	if val := getStyleValue(baseStyle.Multiple, viewStyle.Multiple); val != "" {
+		builder.WriteString(fmt.Sprintf("            multiple: %s\n", val))
+	}
+	if val := getStyleValue(baseStyle.Font, viewStyle.Font); val != "" {
+		builder.WriteString(fmt.Sprintf("            font: %s\n", val))
+	}
+	if val := getStyleValue(baseStyle.FontSize, viewStyle.FontSize); val != "" {
+		builder.WriteString(fmt.Sprintf("            font-size: %s\n", val))
+	}
+	if val := getStyleValue(baseStyle.FontColor, viewStyle.FontColor); val != "" {
+		builder.WriteString(fmt.Sprintf("            font-color: \"%s\"\n", val))
+	}
+	if val := getStyleValue(baseStyle.Animated, viewStyle.Animated); val != "" {
+		builder.WriteString(fmt.Sprintf("            animated: %s\n", val))
+	}
+	if val := getStyleValue(baseStyle.Bold, viewStyle.Bold); val != "" {
+		builder.WriteString(fmt.Sprintf("            bold: %s\n", val))
+	}
+	if val := getStyleValue(baseStyle.Italic, viewStyle.Italic); val != "" {
+		builder.WriteString(fmt.Sprintf("            italic: %s\n", val))
+	}
+	if val := getStyleValue(baseStyle.Underline, viewStyle.Underline); val != "" {
+		builder.WriteString(fmt.Sprintf("            underline: %s\n", val))
+	}
+	if val := getStyleValue(baseStyle.Filled, viewStyle.Filled); val != "" {
+		builder.WriteString(fmt.Sprintf("            filled: %s\n", val))
+	}
+	if val := getStyleValue(baseStyle.DoubleBorder, viewStyle.DoubleBorder); val != "" {
+		builder.WriteString(fmt.Sprintf("            double-border: %s\n", val))
+	}
+	if val := getStyleValue(baseStyle.TextTransform, viewStyle.TextTransform); val != "" {
+		builder.WriteString(fmt.Sprintf("            text-transform: %s\n", val))
+	}
 
 	return builder.String()
 }
