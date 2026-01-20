@@ -1,0 +1,37 @@
+...@classes
+
+input-file: Input D2 File
+
+main: "main.go"
+d2compiler
+graph: "d2graph.Graph"
+
+exporter: "Exporter" {
+    replace-view-layers: "ReplaceViewLayers(sourceReader, graph, rootObjectIds)"
+}
+
+d2view: "Package: d2view" {
+    class: package
+    process-views: "ProcessViews(viewLayers, graph)"
+}
+
+compile: "Package: compile" {
+    class: package
+    extract-root-object-ids: "ExtractRootObjectIds(graph): []string"
+    get-views-nodes: "GetViewsNodes(graph): []ViewNode"
+}
+
+# Relationships
+input-file -> main: Source D2 file input
+main -> d2compiler: Compiles source
+main -> exporter.replace-view-layers: Calls
+
+d2compiler -> graph: Produces
+
+main -> compile.extract-root-object-ids: Gets root object IDs
+
+exporter.replace-view-layers -> graph: Uses
+exporter.replace-view-layers -> d2view.process-views: Calls
+
+d2view.process-views -> compile.get-views-nodes: Calls
+d2view.process-views -> compile.extract-root-object-ids: Calls

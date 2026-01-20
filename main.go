@@ -36,9 +36,6 @@ func main() {
 	graph, _, err := compile.CompileD2(args.Source, reader)
 	checkErr(err, "Unable to compile D2 content")
 
-	views := compile.GetViewsNodes(graph)
-	fmt.Printf("Found %d view nodes\n", len(views))
-
 	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	sourceReader := bytes.NewReader(content)
