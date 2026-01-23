@@ -1267,6 +1267,274 @@ layers: {
 }
 `,
 		},
+		{
+			name: "ViewLevelKeywords_Direction",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a -> b
+
+layers: {
+    view1: { #view
+        direction: right
+        a
+        b
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a -> b
+
+layers: {
+    view1: {
+        direction: right
+        a: "Entity A"
+        b: "Entity B"
+        a -> b
+    }
+}
+`,
+		},
+		{
+			name: "ViewLevelKeywords_DirectionDown",
+			content: `a: "Entity A"
+b: "Entity B"
+
+layers: {
+    view1: { #view
+        direction: down
+        a
+        b
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+layers: {
+    view1: {
+        direction: down
+        a: "Entity A"
+        b: "Entity B"
+    }
+}
+`,
+		},
+		{
+			name: "ViewLevelKeywords_DirectionWithLabel",
+			content: `a: "Entity A"
+b: "Entity B"
+
+layers: {
+    view1: "My View" { #view
+        direction: left
+        a
+        b
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+layers: {
+    view1: "My View" {
+        direction: left
+        a: "Entity A"
+        b: "Entity B"
+    }
+}
+`,
+		},
+		{
+			name: "ViewLevelKeywords_MultipleViews",
+			content: `a: "Entity A"
+b: "Entity B"
+
+layers: {
+    view1: { #view
+        direction: right
+        a
+    }
+    view2: { #view
+        direction: down
+        b
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+layers: {
+    view1: {
+        direction: right
+        a: "Entity A"
+    }
+    view2: {
+        direction: down
+        b: "Entity B"
+    }
+}
+`,
+		},
+		{
+			name: "ViewLevelKeywords_GridRows",
+			content: `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+layers: {
+    view1: { #view
+        grid-rows: 2
+        a
+        b
+        c
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+layers: {
+    view1: {
+        grid-rows: 2
+        a: "Entity A"
+        b: "Entity B"
+        c: "Entity C"
+    }
+}
+`,
+		},
+		{
+			name: "ViewLevelKeywords_GridColumns",
+			content: `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+layers: {
+    view1: { #view
+        grid-columns: 3
+        a
+        b
+        c
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+layers: {
+    view1: {
+        grid-columns: 3
+        a: "Entity A"
+        b: "Entity B"
+        c: "Entity C"
+    }
+}
+`,
+		},
+		{
+			name: "ViewLevelKeywords_GridGap",
+			content: `a: "Entity A"
+b: "Entity B"
+
+layers: {
+    view1: { #view
+        grid-rows: 2
+        grid-gap: 20
+        a
+        b
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+layers: {
+    view1: {
+        grid-rows: 2
+        grid-gap: 20
+        a: "Entity A"
+        b: "Entity B"
+    }
+}
+`,
+		},
+		{
+			name: "ViewLevelKeywords_HorizontalVerticalGap",
+			content: `a: "Entity A"
+b: "Entity B"
+
+layers: {
+    view1: { #view
+        grid-rows: 2
+        horizontal-gap: 30
+        vertical-gap: 15
+        a
+        b
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+layers: {
+    view1: {
+        grid-rows: 2
+        horizontal-gap: 30
+        vertical-gap: 15
+        a: "Entity A"
+        b: "Entity B"
+    }
+}
+`,
+		},
+		{
+			name: "ViewLevelKeywords_AllGridKeywords",
+			content: `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+d: "Entity D"
+
+layers: {
+    view1: { #view
+        direction: right
+        grid-rows: 2
+        grid-columns: 2
+        grid-gap: 10
+        horizontal-gap: 20
+        vertical-gap: 15
+        a
+        b
+        c
+        d
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+d: "Entity D"
+
+layers: {
+    view1: {
+        direction: right
+        grid-rows: 2
+        grid-columns: 2
+        grid-gap: 10
+        horizontal-gap: 20
+        vertical-gap: 15
+        a: "Entity A"
+        b: "Entity B"
+        c: "Entity C"
+        d: "Entity D"
+    }
+}
+`,
+		},
 	}
 
 	for _, tt := range tests {

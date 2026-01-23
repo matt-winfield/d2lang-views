@@ -107,6 +107,10 @@ func generateViewContent(view d2view.View) string {
 	var builder strings.Builder
 
 	builder.WriteString(getLayerDefinition(view))
+
+	// Output view-level keywords (direction, etc.)
+	builder.WriteString(getViewLevelKeywordsRepresentation(view))
+
 	for _, object := range view.Objects {
 		builder.WriteString("    ")
 		builder.WriteString(getObjectD2Representation(object))
@@ -118,6 +122,45 @@ func generateViewContent(view d2view.View) string {
 	}
 
 	builder.WriteString("}")
+
+	return builder.String()
+}
+
+// getViewLevelKeywordsRepresentation returns the D2 representation of view-level keywords
+// such as direction, grid-rows, grid-columns, etc.
+func getViewLevelKeywordsRepresentation(view d2view.View) string {
+	if view.Layer == nil || view.Layer.Root == nil {
+		return ""
+	}
+
+	var builder strings.Builder
+	root := view.Layer.Root
+
+	// Direction keyword
+	if root.Direction.Value != "" && root.Direction.MapKey != nil {
+		builder.WriteString(fmt.Sprintf("    direction: %s\n", root.Direction.Value))
+	}
+
+	// Grid-related keywords
+	if root.GridRows != nil && root.GridRows.Value != "" {
+		builder.WriteString(fmt.Sprintf("    grid-rows: %s\n", root.GridRows.Value))
+	}
+
+	if root.GridColumns != nil && root.GridColumns.Value != "" {
+		builder.WriteString(fmt.Sprintf("    grid-columns: %s\n", root.GridColumns.Value))
+	}
+
+	if root.GridGap != nil && root.GridGap.Value != "" {
+		builder.WriteString(fmt.Sprintf("    grid-gap: %s\n", root.GridGap.Value))
+	}
+
+	if root.HorizontalGap != nil && root.HorizontalGap.Value != "" {
+		builder.WriteString(fmt.Sprintf("    horizontal-gap: %s\n", root.HorizontalGap.Value))
+	}
+
+	if root.VerticalGap != nil && root.VerticalGap.Value != "" {
+		builder.WriteString(fmt.Sprintf("    vertical-gap: %s\n", root.VerticalGap.Value))
+	}
 
 	return builder.String()
 }

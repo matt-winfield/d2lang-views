@@ -186,6 +186,8 @@ layers: {
 
 - [x] Allow including nested children without the parent (e.g. include `parent.child` without `parent`).
 - [x] Bring in other properties of entities (styles, classes, etc) from the base diagram.
+- [x] Maintain view keywords such as `direction`, `grid-*`, etc.
+- [ ] Allow adding or overriding edge labels in views. (what should the syntax be?)
 - [ ] Support `# include class=<class-name>` to include entities of a specific class in the view.
 - [ ] Support wildcard references `# include pattern=something.*` to include multiple entities matching a pattern.
 - [ ] Include comments around the generated view definitions for clarity.
