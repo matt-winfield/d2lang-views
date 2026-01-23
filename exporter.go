@@ -199,7 +199,10 @@ func getEdgeD2Representation(edge *d2view.Edge) string {
 	}
 	builder.WriteString(fmt.Sprintf(" %s", edge.Dst))
 
-	if edge.D2Edge != nil && edge.D2Edge.Label.Value != "" {
+	// LabelOverride takes precedence over D2Edge.Label
+	if edge.LabelOverride != "" {
+		builder.WriteString(fmt.Sprintf(": \"%s\"", edge.LabelOverride))
+	} else if edge.D2Edge != nil && edge.D2Edge.Label.Value != "" {
 		builder.WriteString(fmt.Sprintf(": \"%s\"", edge.D2Edge.Label.Value))
 	}
 

@@ -544,3 +544,173 @@ steps: {
 		})
 	}
 }
+
+func TestGetRelabelEdges(t *testing.T) {
+	tests := []struct {
+		name           string
+		content        string
+		viewName       string
+		expectedCount  int
+		expectedLabels []string // Expected labels in the relabel edges
+	}{
+		{
+			name: "single_relabel_edge",
+			content: `a: "A"
+b: "B"
+a -> b: "original"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b: "new label" #relabel
+    }
+}
+`,
+			viewName:       "view1",
+			expectedCount:  1,
+			expectedLabels: []string{"new label"},
+		},
+		{
+			name: "multiple_relabel_edges",
+			content: `a: "A"
+b: "B"
+c: "C"
+
+a -> b: "first"
+b -> c: "second"
+
+layers: {
+    view1: { #view
+        a
+        b
+        c
+        a -> b: "relabeled first" #relabel
+        b -> c: "relabeled second" #relabel
+    }
+}
+`,
+			viewName:       "view1",
+			expectedCount:  2,
+			expectedLabels: []string{"relabeled first", "relabeled second"},
+		},
+		{
+			name: "no_relabel_edges",
+			content: `a: "A"
+b: "B"
+a -> b: "original"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b: "new edge"
+    }
+}
+`,
+			viewName:       "view1",
+			expectedCount:  0,
+			expectedLabels: []string{},
+		},
+		{
+			name: "mixed_relabel_and_normal_edges",
+			content: `a: "A"
+b: "B"
+c: "C"
+
+a -> b: "original"
+
+layers: {
+    view1: { #view
+        a
+        b
+        c
+        a -> b: "relabeled" #relabel
+        b -> c: "new edge"
+    }
+}
+`,
+			viewName:       "view1",
+			expectedCount:  1,
+			expectedLabels: []string{"relabeled"},
+		},
+		{
+			name: "relabel_in_different_view",
+			content: `a: "A"
+b: "B"
+a -> b: "original"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b: "view1 label" #relabel
+    }
+    view2: { #view
+        a
+        b
+        a -> b: "view2 label" #relabel
+    }
+}
+`,
+			viewName:       "view2",
+			expectedCount:  1,
+			expectedLabels: []string{"view2 label"},
+		},
+		{
+			name: "relabel_nested_entities",
+			content: `parent: {
+    child1: "C1"
+    child2: "C2"
+}
+parent.child1 -> parent.child2: "original"
+
+layers: {
+    view1: { #view
+        parent.child1
+        parent.child2
+        parent.child1 -> parent.child2: "nested relabel" #relabel
+    }
+}
+`,
+			viewName:       "view1",
+			expectedCount:  1,
+			expectedLabels: []string{"nested relabel"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := strings.NewReader(tt.content)
+			graph, _, err := CompileD2("test.d2", reader)
+			if err != nil {
+				t.Fatalf("failed to parse: %v", err)
+			}
+
+			relabelEdges := GetRelabelEdges(graph, tt.viewName)
+
+			if len(relabelEdges) != tt.expectedCount {
+				t.Fatalf("expected %d relabel edges, got %d", tt.expectedCount, len(relabelEdges))
+			}
+
+			// Collect labels from relabel edges
+			actualLabels := make([]string, 0, len(relabelEdges))
+			for key := range relabelEdges {
+				actualLabels = append(actualLabels, key.Label)
+			}
+
+			for _, expectedLabel := range tt.expectedLabels {
+				found := false
+				for _, actualLabel := range actualLabels {
+					if actualLabel == expectedLabel {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("expected label %q not found in relabel edges", expectedLabel)
+				}
+			}
+		})
+	}
+}

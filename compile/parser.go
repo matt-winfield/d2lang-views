@@ -128,3 +128,116 @@ func extractObjectIds(node *d2graph.Object, prefix string, entities map[string]s
 		extractObjectIds(child, currentId, entities)
 	}
 }
+
+// RelabelEdgeKey uniquely identifies an edge for relabeling purposes.
+// Uses lowercase IDs for case-insensitive matching.
+type RelabelEdgeKey struct {
+	SrcID    string
+	DstID    string
+	SrcArrow bool
+	DstArrow bool
+	Label    string // The new label to apply
+}
+
+// GetRelabelEdges returns a set of edges that have the #relabel comment in the given view layer.
+// The returned map uses edge keys for matching against base layer edges.
+func GetRelabelEdges(graph *d2graph.Graph, viewName string) map[RelabelEdgeKey]struct{} {
+	result := make(map[RelabelEdgeKey]struct{})
+
+	viewNodes := getViewASTNodes(graph, viewName)
+	if viewNodes == nil {
+		return result
+	}
+
+	for i, node := range viewNodes {
+		if key, ok := extractRelabelEdge(node, viewNodes, i); ok {
+			result[key] = struct{}{}
+		}
+	}
+
+	return result
+}
+
+// getViewASTNodes returns the AST nodes for a specific view layer.
+func getViewASTNodes(graph *d2graph.Graph, viewName string) []d2ast.MapNodeBox {
+	layersNode := getLayersNode(graph)
+	if layersNode == nil || layersNode.MapKey == nil || layersNode.MapKey.Value.Map == nil {
+		return nil
+	}
+
+	for _, layerNode := range layersNode.MapKey.Value.Map.Nodes {
+		if !mapKeyHasId(layerNode, viewName) {
+			continue
+		}
+		if layerNode.MapKey.Value.Map == nil {
+			return nil
+		}
+		return layerNode.MapKey.Value.Map.Nodes
+	}
+
+	return nil
+}
+
+// extractRelabelEdge checks if the node at index i is an edge with an inline #relabel comment.
+// Returns the RelabelEdgeKey and true if found, otherwise returns empty key and false.
+func extractRelabelEdge(node d2ast.MapNodeBox, nodes []d2ast.MapNodeBox, i int) (RelabelEdgeKey, bool) {
+	if node.MapKey == nil || len(node.MapKey.Edges) == 0 {
+		return RelabelEdgeKey{}, false
+	}
+
+	if !hasInlineRelabelComment(node, nodes, i) {
+		return RelabelEdgeKey{}, false
+	}
+
+	edge := node.MapKey.Edges[0]
+	return RelabelEdgeKey{
+		SrcID:    strings.ToLower(getKeyPathString(edge.Src)),
+		DstID:    strings.ToLower(getKeyPathString(edge.Dst)),
+		SrcArrow: edge.SrcArrow != "",
+		DstArrow: edge.DstArrow != "",
+		Label:    getEdgeLabelFromValue(node.MapKey.Value),
+	}, true
+}
+
+// hasInlineRelabelComment checks if the next node is a #relabel comment on the same line.
+func hasInlineRelabelComment(node d2ast.MapNodeBox, nodes []d2ast.MapNodeBox, i int) bool {
+	if i+1 >= len(nodes) {
+		return false
+	}
+
+	nextNode := nodes[i+1]
+	if nextNode.Comment == nil {
+		return false
+	}
+
+	edgeLine := node.MapKey.Range.Start.Line
+	return nextNode.Comment.Range.Start.Line == edgeLine &&
+		strings.TrimSpace(nextNode.Comment.Value) == "relabel"
+}
+
+// getKeyPathString returns the dot-separated string representation of a KeyPath.
+func getKeyPathString(kp *d2ast.KeyPath) string {
+	if kp == nil {
+		return ""
+	}
+	parts := make([]string, len(kp.Path))
+	for i, part := range kp.Path {
+		parts[i] = part.Unbox().ScalarString()
+	}
+	return strings.Join(parts, ".")
+}
+
+// getEdgeLabelFromValue extracts the edge label from a ValueBox struct.
+// It handles both quoted and unquoted string values.
+func getEdgeLabelFromValue(value d2ast.ValueBox) string {
+	if value.UnquotedString != nil {
+		return value.UnquotedString.ScalarString()
+	}
+	if value.DoubleQuotedString != nil {
+		return value.DoubleQuotedString.ScalarString()
+	}
+	if value.SingleQuotedString != nil {
+		return value.SingleQuotedString.ScalarString()
+	}
+	return ""
+}

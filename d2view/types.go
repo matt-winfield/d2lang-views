@@ -28,6 +28,9 @@ type Edge struct {
 	DstArrow bool
 	// D2Edge is the original D2 edge.
 	D2Edge *d2graph.Edge
+	// LabelOverride is set when the view uses #relabel to override the edge's label.
+	// When set, this takes precedence over D2Edge.Label.
+	LabelOverride string
 }
 
 type Object struct {

@@ -135,9 +135,14 @@ func GetLabel(viewObject *d2graph.Object, baseObject *d2graph.Object) string {
 // processViewEdges extracts the edges from the base layer that are relevant to the view layer.
 // Only edges where both the source and destination objects are explicitly present in the view layer are included.
 // Edge source/destination IDs are adjusted to reflect the filtered object hierarchy.
+// Edges with #relabel in the view layer override the labels of matching base edges.
 func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds map[string]struct{}) []*Edge {
 	// Build a mapping from original absolute IDs to filtered absolute IDs
 	idMapping := buildFilteredIdMapping(layer, explicitIds)
+
+	// Get the relabel edges for this view - we'll track which ones get applied
+	relabelEdges := compile.GetRelabelEdges(graph, layer.Name)
+	appliedRelabels := make(map[compile.RelabelEdgeKey]struct{})
 
 	edges := make([]*Edge, 0, len(layer.Edges))
 
@@ -150,17 +155,30 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds ma
 		filteredDstId, dstInView := idMapping[strings.ToLower(dstId)]
 
 		if srcInView && dstInView {
-			edges = append(edges, &Edge{
+			newEdge := &Edge{
 				Src:      filteredSrcId,
 				Dst:      filteredDstId,
 				SrcArrow: edge.SrcArrow,
 				DstArrow: edge.DstArrow,
 				D2Edge:   edge,
-			})
+			}
+
+			// Check if there's a relabel for this edge
+			relabelKey, labelOverride := findRelabelForEdge(srcId, dstId, edge.SrcArrow, edge.DstArrow, relabelEdges)
+			if labelOverride != "" {
+				newEdge.LabelOverride = labelOverride
+				// Mark this relabel as applied
+				appliedRelabels[relabelKey] = struct{}{}
+				// Remove the relabel entry so it's only applied once (to the first matching edge)
+				delete(relabelEdges, relabelKey)
+			}
+
+			edges = append(edges, newEdge)
 		}
 	}
 
 	// Process edges defined in the view layer
+	allRelabelEdges := compile.GetRelabelEdges(graph, layer.Name)
 	for _, edge := range layer.Edges {
 		srcId := compile.GetAbsoluteId(edge.Src)
 		dstId := compile.GetAbsoluteId(edge.Dst)
@@ -169,6 +187,25 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds ma
 		filteredDstId, dstExists := idMapping[strings.ToLower(dstId)]
 
 		if srcExists && dstExists {
+			// Check if this is a relabel edge
+			relabelKey, isRelabel := getRelabelKey(srcId, dstId, edge.SrcArrow, edge.DstArrow, allRelabelEdges)
+			if isRelabel {
+				// Only skip if this relabel was applied to a base edge
+				if _, wasApplied := appliedRelabels[relabelKey]; wasApplied {
+					continue
+				}
+				// Otherwise, add it as a new edge with the relabel as its label
+				edges = append(edges, &Edge{
+					Src:           filteredSrcId,
+					Dst:           filteredDstId,
+					SrcArrow:      edge.SrcArrow,
+					DstArrow:      edge.DstArrow,
+					D2Edge:        edge,
+					LabelOverride: relabelKey.Label,
+				})
+				continue
+			}
+
 			edges = append(edges, &Edge{
 				Src:      filteredSrcId,
 				Dst:      filteredDstId,
@@ -180,6 +217,33 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds ma
 	}
 
 	return edges
+}
+
+// findRelabelForEdge checks if there's a matching relabel entry for the given edge.
+// Returns the key and override label if found, empty key and string otherwise.
+func findRelabelForEdge(srcId, dstId string, srcArrow, dstArrow bool, relabelEdges map[compile.RelabelEdgeKey]struct{}) (compile.RelabelEdgeKey, string) {
+	for key := range relabelEdges {
+		if strings.ToLower(srcId) == key.SrcID &&
+			strings.ToLower(dstId) == key.DstID &&
+			srcArrow == key.SrcArrow &&
+			dstArrow == key.DstArrow {
+			return key, key.Label
+		}
+	}
+	return compile.RelabelEdgeKey{}, ""
+}
+
+// getRelabelKey checks if the given edge parameters match a relabel edge and returns the key.
+func getRelabelKey(srcId, dstId string, srcArrow, dstArrow bool, relabelEdges map[compile.RelabelEdgeKey]struct{}) (compile.RelabelEdgeKey, bool) {
+	for key := range relabelEdges {
+		if strings.ToLower(srcId) == key.SrcID &&
+			strings.ToLower(dstId) == key.DstID &&
+			srcArrow == key.SrcArrow &&
+			dstArrow == key.DstArrow {
+			return key, true
+		}
+	}
+	return compile.RelabelEdgeKey{}, false
 }
 
 // buildFilteredIdMapping creates a mapping from original absolute IDs to filtered absolute IDs.

@@ -1535,6 +1535,286 @@ layers: {
 }
 `,
 		},
+		// Edge label override tests using #relabel
+		{
+			name: "EdgeRelabel_OverridesSingleEdgeLabel",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "original label"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b: "view-specific label" #relabel
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "original label"
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        a -> b: "view-specific label"
+    }
+}
+`,
+		},
+		{
+			name: "EdgeRelabel_OverridesFirstMatchingEdge",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "first"
+a -> b: "second"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b: "overridden first" #relabel
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "first"
+a -> b: "second"
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        a -> b: "overridden first"
+        a -> b: "second"
+    }
+}
+`,
+		},
+		{
+			name: "EdgeRelabel_DoesNotAddDuplicateEdge",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "original"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b: "new label" #relabel
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "original"
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        a -> b: "new label"
+    }
+}
+`,
+		},
+		{
+			name: "EdgeRelabel_AddsNewEdgeIfNoMatch",
+			content: `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+a -> b: "existing"
+
+layers: {
+    view1: { #view
+        a
+        b
+        c
+        b -> c: "new edge" #relabel
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+a -> b: "existing"
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        c: "Entity C"
+        a -> b: "existing"
+        b -> c: "new edge"
+    }
+}
+`,
+		},
+		{
+			name: "EdgeRelabel_WithNestedEntities",
+			content: `parent: {
+    child1: "Child 1"
+    child2: "Child 2"
+}
+
+parent.child1 -> parent.child2: "original connection"
+
+layers: {
+    view1: { #view
+        parent.child1
+        parent.child2
+        parent.child1 -> parent.child2: "view connection" #relabel
+    }
+}
+`,
+			expected: `parent: {
+    child1: "Child 1"
+    child2: "Child 2"
+}
+
+parent.child1 -> parent.child2: "original connection"
+
+layers: {
+    view1: {
+        child1: "Child 1"
+        child2: "Child 2"
+        child1 -> child2: "view connection"
+    }
+}
+`,
+		},
+		{
+			name: "EdgeRelabel_MixedRelabelAndNewEdges",
+			content: `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+a -> b: "original a-b"
+
+layers: {
+    view1: { #view
+        a
+        b
+        c
+        a -> b: "new a-b label" #relabel
+        b -> c: "new b-c"
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+a -> b: "original a-b"
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        c: "Entity C"
+        a -> b: "new a-b label"
+        b -> c: "new b-c"
+    }
+}
+`,
+		},
+		{
+			name: "EdgeRelabel_PreservesEdgeDirection",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a <- b: "backward"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a <- b: "new backward" #relabel
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a <- b: "backward"
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        a <- b: "new backward"
+    }
+}
+`,
+		},
+		{
+			name: "EdgeRelabel_BiDirectionalEdge",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a <-> b: "bidirectional"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a <-> b: "new bidirectional" #relabel
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a <-> b: "bidirectional"
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        a <-> b: "new bidirectional"
+    }
+}
+`,
+		},
+		{
+			name: "EdgeRelabel_CaseInsensitiveMatching",
+			content: `NodeA: "Entity A"
+NodeB: "Entity B"
+
+NodeA -> NodeB: "original"
+
+layers: {
+    view1: { #view
+        nodea
+        nodeb
+        nodea -> nodeb: "relabeled" #relabel
+    }
+}
+`,
+			expected: `NodeA: "Entity A"
+NodeB: "Entity B"
+
+NodeA -> NodeB: "original"
+
+layers: {
+    view1: {
+        nodea: "Entity A"
+        nodeb: "Entity B"
+        nodea -> nodeb: "relabeled"
+    }
+}
+`,
+		},
 	}
 
 	for _, tt := range tests {
