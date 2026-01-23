@@ -230,9 +230,12 @@ The `#relabel` comment:
 - [x] Maintain view keywords such as `direction`, `grid-*`, etc.
 - [x] Allow adding or overriding edge labels in views (using `#relabel` syntax).
 - [ ] Allow removing edges from views (using `#remove` syntax).
+- [ ] Preserve edge styles/classes/properties from the base diagram.
+- [ ] Maintain `title: |md` multi-line labels from the base diagram.
 - [ ] Output the generated d2 diagram in the same directory as the source (to preserve relative import paths).
 - [ ] Support `# include class=<class-name>` to include entities of a specific class in the view.
 - [ ] Support wildcard references `# include pattern=something.*` to include multiple entities matching a pattern.
+- [ ] Support auto-including parent containers via `# parents` comment following the entity reference.
 - [ ] Include comments around the generated view definitions for clarity.
 - [x] Automatically compile the generated view diagrams using the D2 CLI.
 - [ ] Watch mode to monitor changes in the source diagram and regenerate views automatically.
