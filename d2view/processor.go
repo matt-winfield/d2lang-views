@@ -39,7 +39,7 @@ func processViewObjects(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds 
 	objects := make([]*Object, 0, len(layer.Objects))
 	for _, obj := range layer.Objects {
 		absId := compile.GetAbsoluteId(obj)
-		if _, isExplicit := explicitIds[absId]; !isExplicit {
+		if _, isExplicit := explicitIds[strings.ToLower(absId)]; !isExplicit {
 			continue // Skip implicit parent objects
 		}
 		viewObj := processViewObject(obj, graph, explicitIds)
@@ -51,6 +51,7 @@ func processViewObjects(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds 
 
 // getExplicitObjectIds returns a set of absolute IDs for objects that are explicitly referenced in the layer.
 // An object is explicit if it has at least one reference where the reference path length equals the object's path depth.
+// Keys are stored in lowercase for case-insensitive matching.
 func getExplicitObjectIds(layer *d2graph.Graph) map[string]struct{} {
 	explicitIds := make(map[string]struct{})
 
@@ -60,7 +61,7 @@ func getExplicitObjectIds(layer *d2graph.Graph) map[string]struct{} {
 
 		for _, ref := range obj.References {
 			if len(ref.Key.Path) == pathLen {
-				explicitIds[absId] = struct{}{}
+				explicitIds[strings.ToLower(absId)] = struct{}{}
 				break
 			}
 		}
@@ -110,7 +111,7 @@ func findExplicitParent(parent *d2graph.Object, explicitIds map[string]struct{})
 		if absId == "" {
 			return nil // Reached the root
 		}
-		if _, isExplicit := explicitIds[absId]; isExplicit {
+		if _, isExplicit := explicitIds[strings.ToLower(absId)]; isExplicit {
 			return parent
 		}
 		parent = parent.Parent
@@ -145,8 +146,8 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds ma
 		srcId := compile.GetAbsoluteId(edge.Src)
 		dstId := compile.GetAbsoluteId(edge.Dst)
 
-		filteredSrcId, srcInView := idMapping[srcId]
-		filteredDstId, dstInView := idMapping[dstId]
+		filteredSrcId, srcInView := idMapping[strings.ToLower(srcId)]
+		filteredDstId, dstInView := idMapping[strings.ToLower(dstId)]
 
 		if srcInView && dstInView {
 			edges = append(edges, &Edge{
@@ -164,8 +165,8 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds ma
 		srcId := compile.GetAbsoluteId(edge.Src)
 		dstId := compile.GetAbsoluteId(edge.Dst)
 
-		filteredSrcId, srcExists := idMapping[srcId]
-		filteredDstId, dstExists := idMapping[dstId]
+		filteredSrcId, srcExists := idMapping[strings.ToLower(srcId)]
+		filteredDstId, dstExists := idMapping[strings.ToLower(dstId)]
 
 		if srcExists && dstExists {
 			edges = append(edges, &Edge{
@@ -183,18 +184,19 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds ma
 
 // buildFilteredIdMapping creates a mapping from original absolute IDs to filtered absolute IDs.
 // Only explicit objects are included in the mapping.
+// Keys are stored in lowercase for case-insensitive matching.
 func buildFilteredIdMapping(layer *d2graph.Graph, explicitIds map[string]struct{}) map[string]string {
 	idMapping := make(map[string]string)
 
 	for _, obj := range layer.Objects {
 		absId := compile.GetAbsoluteId(obj)
-		if _, isExplicit := explicitIds[absId]; !isExplicit {
+		if _, isExplicit := explicitIds[strings.ToLower(absId)]; !isExplicit {
 			continue
 		}
 
 		// Build the filtered ID by walking up the parent chain and only including explicit parents
 		filteredId := buildFilteredAbsoluteId(obj, explicitIds)
-		idMapping[absId] = filteredId
+		idMapping[strings.ToLower(absId)] = filteredId
 	}
 
 	return idMapping
@@ -211,7 +213,7 @@ func buildFilteredAbsoluteId(obj *d2graph.Object, explicitIds map[string]struct{
 		if absId == "" {
 			break // Reached root
 		}
-		if _, isExplicit := explicitIds[absId]; isExplicit {
+		if _, isExplicit := explicitIds[strings.ToLower(absId)]; isExplicit {
 			parts = append([]string{current.ID}, parts...)
 		}
 		current = current.Parent

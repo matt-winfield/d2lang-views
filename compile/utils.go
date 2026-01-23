@@ -8,9 +8,10 @@ import (
 )
 
 // FindObjectById searches for an object with the given ID in the D2 graph.
+// The search is case-insensitive to allow flexible referencing of objects.
 func FindObjectById(graph *d2graph.Graph, id string) (*d2graph.Object, error) {
 	for _, obj := range graph.Objects {
-		if GetAbsoluteId(obj) == id {
+		if strings.EqualFold(GetAbsoluteId(obj), id) {
 			return obj, nil
 		}
 	}
