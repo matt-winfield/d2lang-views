@@ -16,6 +16,24 @@ go install github.com/matt-winfield/d2lang-views@latest
 d2lang-views ./path/to/diagram.d2 output/diagram.svg
 ```
 
+### Options
+
+- `--layout, -l` - Layout engine to use (e.g., dagre, elk)
+- `--debug, -d` - Enable debug output (intermediate AST files)
+- `--views-only` - Only output SVGs for view layers (marked with `#view`)
+
+### Views-Only Mode
+
+Use `--views-only` to skip rendering non-view layers:
+
+```bash
+d2lang-views --views-only ./path/to/diagram.d2 output/diagram.svg
+```
+
+This is useful when you only need the focused view diagrams and don't need the full diagram or regular layers rendered.
+
+### Output
+
 This generates:
 
 - `<source-dir>/<filename>-compiled.d2` - Compiled D2 file in the same directory as the source (preserves relative import paths)
@@ -252,7 +270,9 @@ Edge styles, classes, and other properties from the base diagram are automatical
 - [ ] Allow removing edges from views (using `#remove` syntax).
 - [x] Maintain `title: |md` multi-line labels from the base diagram.
 - [x] Output the generated d2 diagram in the same directory as the source (to preserve relative import paths).
-- [ ] Support `# include class=<class-name>` to include entities of a specific class in the view.
+- [x] Support CLI option to disable outputting non-view layers as SVGs.
+- [ ] Support disabling outputting the compiled D2 file via CLI option.
+- [ ] Support `# include class=<class-name>` to include entities of a specific class in the view. (tagging)
 - [ ] Support wildcard references `# include pattern=something.*` to include multiple entities matching a pattern.
 - [ ] Support auto-including parent containers via `# parents` comment following the entity reference.
 - [ ] Include comments around the generated view definitions for clarity. Include the version of the tool used to generate it.

@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/matt-winfield/d2lang-views/compile"
 )
 
 func TestEnsureDirExists_CreatesNewDir(t *testing.T) {
@@ -156,6 +159,109 @@ func TestCheckOutputConflict(t *testing.T) {
 			}
 			if !tt.expectError && err != nil {
 				t.Errorf("expected no error for source=%q dest=%q, got: %v", tt.sourcePath, tt.destination, err)
+			}
+		})
+	}
+}
+
+func TestGetViewLayerNames(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{
+			name: "single view layer",
+			input: `client: "Web Client"
+server: "API Server"
+
+client -> server
+
+layers: {
+    frontend: { #view
+        client
+        server
+    }
+}`,
+			expected: []string{"frontend"},
+		},
+		{
+			name: "multiple view layers",
+			input: `client: "Web Client"
+server: "API Server"
+db: "Database"
+
+client -> server
+server -> db
+
+layers: {
+    frontend: { #view
+        client
+        server
+    }
+    backend: { #view
+        server
+        db
+    }
+}`,
+			expected: []string{"frontend", "backend"},
+		},
+		{
+			name: "mixed view and non-view layers",
+			input: `client: "Web Client"
+server: "API Server"
+
+client -> server
+
+layers: {
+    frontend: { #view
+        client
+        server
+    }
+    regular_layer: {
+        other: "Something"
+    }
+    backend: { #view
+        server
+    }
+}`,
+			expected: []string{"frontend", "backend"},
+		},
+		{
+			name:     "no layers",
+			input:    `client: "Web Client"`,
+			expected: []string{},
+		},
+		{
+			name: "layers but no views",
+			input: `client: "Web Client"
+
+layers: {
+    regular: {
+        other: "Something"
+    }
+}`,
+			expected: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := bytes.NewReader([]byte(tt.input))
+			graph, _, err := compile.CompileD2("test.d2", reader)
+			if err != nil {
+				t.Fatalf("failed to compile D2: %v", err)
+			}
+
+			result := getViewLayerNames(graph)
+
+			if len(result) != len(tt.expected) {
+				t.Fatalf("expected %d view layers, got %d: %v", len(tt.expected), len(result), result)
+			}
+			for i, name := range result {
+				if name != tt.expected[i] {
+					t.Errorf("view layer[%d] = %q, want %q", i, name, tt.expected[i])
+				}
 			}
 		})
 	}

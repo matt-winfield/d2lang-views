@@ -12,6 +12,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/matt-winfield/d2lang-views/compile"
 	"github.com/matt-winfield/d2lang-views/render"
+	"oss.terrastruct.com/d2/d2graph"
 )
 
 var args struct {
@@ -19,6 +20,7 @@ var args struct {
 	Destination string `arg:"positional" help:"path to output SVG file"`
 	Layout      string `arg:"-l,--layout" help:"layout engine to use (e.g., dagre, elk)"`
 	Debug       bool   `arg:"-d,--debug" help:"enable debug output - output intermediate AST files"`
+	ViewsOnly   bool   `arg:"--views-only" help:"only output SVGs for view layers (marked with #view)"`
 }
 
 func main() {
@@ -92,15 +94,29 @@ func main() {
 	err = ensureDirExists(svgOutputDir)
 	checkErr(err, "Unable to create SVG layers directory")
 
-	// Compile each layer to SVG using d2 CLI
-	err = render.RenderD2File(viewOutputPath, svgOutputPath, args.Layout)
-	checkErr(err, "Unable to compile layers to SVG")
-
-	for _, layerName := range layerNames {
-		color.Green("Successfully compiled layer '%s' to %s/%s.svg", layerName, svgOutputDir, layerName)
+	// Compile to SVG using d2 CLI
+	renderOpts := render.RenderOptions{
+		InputPath:      viewOutputPath,
+		OutputPath:     svgOutputPath,
+		Layout:         args.Layout,
+		ViewsOnly:      args.ViewsOnly,
+		ViewLayerNames: getViewLayerNames(graph),
 	}
 
-	fmt.Printf("Compiled %d layers to SVG\n", len(layerNames))
+	result, err := render.Render(renderOpts)
+	checkErr(err, "Unable to compile to SVG")
+
+	if result.ViewsOnly {
+		for _, viewName := range result.RenderedLayers {
+			color.Green("Successfully compiled view '%s' to %s/%s.svg", viewName, svgOutputDir, viewName)
+		}
+		fmt.Printf("Compiled %d view layers to SVG\n", len(result.RenderedLayers))
+	} else {
+		for _, layerName := range layerNames {
+			color.Green("Successfully compiled layer '%s' to %s/%s.svg", layerName, svgOutputDir, layerName)
+		}
+		fmt.Printf("Compiled %d layers to SVG\n", len(layerNames))
+	}
 }
 
 // ensureDirExists checks if a directory exists at the given path,
@@ -282,4 +298,14 @@ func stripExtension(path string) string {
 		return newBasename
 	}
 	return dir + "/" + newBasename
+}
+
+// getViewLayerNames returns the names of all layers marked with #view.
+func getViewLayerNames(graph *d2graph.Graph) []string {
+	views := compile.GetViewsNodes(graph)
+	names := make([]string, 0, len(views))
+	for _, view := range views {
+		names = append(names, view.Name)
+	}
+	return names
 }
