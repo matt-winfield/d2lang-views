@@ -103,6 +103,64 @@ func TestEnsureDirExists_FileExistsAtPath(t *testing.T) {
 	}
 }
 
+func TestCheckOutputConflict(t *testing.T) {
+	tests := []struct {
+		name        string
+		sourcePath  string
+		destination string
+		expectError bool
+	}{
+		{
+			name:        "no conflict - different directories",
+			sourcePath:  "/docs/d2/views.d2",
+			destination: "/output/diagram.svg",
+			expectError: false,
+		},
+		{
+			name:        "no conflict - output is file alongside source dir",
+			sourcePath:  "/docs/d2/views.d2",
+			destination: "/docs/diagram.svg",
+			expectError: false,
+		},
+		{
+			name:        "CONFLICT - output dir same as source dir",
+			sourcePath:  "/docs/architecture/d2/views.d2",
+			destination: "/docs/architecture/d2.svg",
+			expectError: true,
+		},
+		{
+			name:        "CONFLICT - output dir is parent of source",
+			sourcePath:  "/docs/architecture/d2/subdir/views.d2",
+			destination: "/docs/architecture/d2.svg",
+			expectError: true,
+		},
+		{
+			name:        "no conflict - similar names but different paths",
+			sourcePath:  "/docs/d2-source/views.d2",
+			destination: "/docs/d2.svg",
+			expectError: false,
+		},
+		{
+			name:        "no conflict - output in completely different tree",
+			sourcePath:  "/project/src/diagrams/views.d2",
+			destination: "/project/output/diagrams.svg",
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkOutputConflict(tt.sourcePath, tt.destination)
+			if tt.expectError && err == nil {
+				t.Errorf("expected error for source=%q dest=%q, got nil", tt.sourcePath, tt.destination)
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("expected no error for source=%q dest=%q, got: %v", tt.sourcePath, tt.destination, err)
+			}
+		})
+	}
+}
+
 func TestGetD2OutputPath(t *testing.T) {
 	tests := []struct {
 		name       string

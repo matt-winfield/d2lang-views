@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/alexflint/go-arg"
 	"github.com/fatih/color"
@@ -25,6 +27,10 @@ func main() {
 		color.Yellow("Usage: program <source> <destination>")
 		os.Exit(1)
 	}
+
+	// Check for output directory conflict before any file operations
+	err := checkOutputConflict(args.Source, args.Destination)
+	checkErr(err, "Output path conflict detected")
 
 	content, err := os.ReadFile(args.Source)
 	checkErr(err, "Unable to read source file")
@@ -174,6 +180,70 @@ func insertSuffixBeforeExtension(path, suffix string) string {
 		return newBasename
 	}
 	return dir + "/" + newBasename
+}
+
+// checkOutputConflict verifies that the SVG output directory won't conflict with the source directory.
+// This prevents the d2 CLI from deleting source files when it creates the layer output folder.
+// The d2 CLI creates a folder with the same name as the output file (minus extension) for layer SVGs.
+func checkOutputConflict(sourcePath, destination string) error {
+	// Get the directory containing the source file
+	sourceDir := getDirectory(sourcePath)
+	if sourceDir == "" {
+		sourceDir = "."
+	}
+
+	// Get the absolute path of the source directory
+	absSourceDir, err := absolutePath(sourceDir)
+	if err != nil {
+		return fmt.Errorf("unable to resolve source directory: %w", err)
+	}
+
+	// The d2 CLI creates a folder for layer SVGs based on the output filename
+	// e.g., output.svg creates output/ folder
+	svgOutputDir := stripExtension(destination)
+	absSvgOutputDir, err := absolutePath(svgOutputDir)
+	if err != nil {
+		// If we can't resolve the path, it might not exist yet - that's okay
+		// But we should still check if it WOULD conflict
+		absSvgOutputDir = svgOutputDir
+	}
+
+	// Check if the SVG output directory is the same as or a parent of the source directory
+	// This would cause d2 to overwrite/delete source files
+	if absSourceDir == absSvgOutputDir || isSubpath(absSourceDir, absSvgOutputDir) {
+		return fmt.Errorf(
+			"SVG output directory '%s' conflicts with source directory '%s'. "+
+				"The d2 CLI would overwrite your source files. "+
+				"Please use a different output path (e.g., '%s-output.svg')",
+			svgOutputDir, sourceDir, stripExtension(destination))
+	}
+
+	return nil
+}
+
+// absolutePath returns the absolute path, resolving any relative components.
+func absolutePath(path string) (string, error) {
+	// Use filepath.Abs for proper path resolution
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	// Clean the path to remove any . or .. components
+	return filepath.Clean(abs), nil
+}
+
+// isSubpath checks if child is a subdirectory of parent.
+func isSubpath(child, parent string) bool {
+	// Ensure paths are clean and use consistent separators
+	child = filepath.Clean(child)
+	parent = filepath.Clean(parent)
+
+	// Add trailing separator to parent to ensure we match directory boundaries
+	if !strings.HasSuffix(parent, string(filepath.Separator)) {
+		parent = parent + string(filepath.Separator)
+	}
+
+	return strings.HasPrefix(child, parent)
 }
 
 // stripExtension removes the file extension from a path.
