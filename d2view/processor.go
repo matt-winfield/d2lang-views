@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/matt-winfield/d2lang-views/compile"
+	"oss.terrastruct.com/d2/d2compiler"
 	"oss.terrastruct.com/d2/d2graph"
 )
 
@@ -122,14 +123,25 @@ func findExplicitParent(parent *d2graph.Object, explicitIds map[string]struct{})
 // GetLabel returns the label to use for the view object.
 // It prefers the view object's label, falling back to the base object's label if necessary.
 // If neither has a label, it returns the view object's ID.
-func GetLabel(viewObject *d2graph.Object, baseObject *d2graph.Object) string {
-	if viewObject.HasLabel() && viewObject.Label.Value != viewObject.ID {
-		return viewObject.Label.Value
+func GetLabel(viewObject, baseObject *d2graph.Object) string {
+	if viewObject.Label.Value != viewObject.ID {
+		return getObjectLabel(viewObject)
 	}
-	if baseObject != nil && baseObject.HasLabel() && baseObject.Label.Value != baseObject.ID {
-		return baseObject.Label.Value
+	if baseObject != nil && baseObject.Label.Value != baseObject.ID {
+		return getObjectLabel(baseObject)
 	}
 	return ""
+}
+
+func getObjectLabel(obj *d2graph.Object) string {
+	if obj.Attributes.Language != "" {
+		alias := d2compiler.FullToShortLanguageAliases[obj.Attributes.Language]
+		if alias != "" {
+			return "|" + alias + "\n" + obj.Label.Value + "\n|"
+		}
+		return "|" + obj.Attributes.Language + "\n" + obj.Label.Value + "\n|"
+	}
+	return obj.Label.Value
 }
 
 // processViewEdges extracts the edges from the base layer that are relevant to the view layer.

@@ -4,23 +4,29 @@ first -> second
 third
 
 layers: {
-    custom: "Custom Name" { #view
-        first
-        second
-    }
+  custom: "Custom Name" {
+    # view
+    first
+    second
+  }
 
-    view2 {
-        # view
-        first
-        second.something
-    }
-    
-    not_a_view {
-        first
-        second
-    }
+  view2: {
+    # view
+    title: |md
+      # Test
+      ## Subtitle
+    |
+    first
+    second.something
+  }
 
-    default: { #view
-        first -> SomethingElse
-    }
+  not_a_view: {
+    first
+    second
+  }
+
+  default: {
+    # view
+    first -> SomethingElse
+  }
 }

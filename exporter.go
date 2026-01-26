@@ -43,6 +43,7 @@ type viewContentRangeResult struct {
 	indentation string
 }
 
+// getViewContentRange finds the range in the source D2 content that corresponds to the given view's layer definition.
 func getViewContentRange(view *d2graph.Graph, graph *d2graph.Graph, source string) (viewContentRangeResult, error) {
 	layersNode := getLayersAstNode(graph)
 	if layersNode == nil || layersNode.MapKey == nil || layersNode.MapKey.Value.Map == nil {
@@ -304,9 +305,7 @@ func getObjectD2Representation(object *d2view.Object) string {
 	objectId := strings.Join(object.StringIDA(), ".")
 	builder.WriteString(objectId)
 	if object.Label != "" {
-		builder.WriteString(": \"")
-		builder.WriteString(object.Label)
-		builder.WriteString("\"")
+		builder.WriteString(getLabelRepresentation(object.Label))
 	}
 
 	attrs := getObjectAttributesRepresentation(object)
@@ -318,6 +317,20 @@ func getObjectD2Representation(object *d2view.Object) string {
 	builder.WriteString("\n")
 
 	return builder.String()
+}
+
+// getLabelRepresentation returns the D2 representation of the object's label.
+func getLabelRepresentation(label string) string {
+	if label == "" {
+		return ""
+	}
+	// needs quotes if string does not start and end with |
+	needsQuotes := !(strings.HasPrefix(label, "|") && strings.HasSuffix(label, "|"))
+
+	if needsQuotes {
+		return fmt.Sprintf(": \"%s\"", label)
+	}
+	return fmt.Sprintf(": %s", label)
 }
 
 // getObjectAttributesRepresentation returns the D2 representation of the object's attributes.

@@ -250,7 +250,7 @@ Edge styles, classes, and other properties from the base diagram are automatical
 - [x] Allow adding or overriding edge properties in views (using `#override` syntax).
 - [x] Preserve edge styles/classes/properties from the base diagram.
 - [ ] Allow removing edges from views (using `#remove` syntax).
-- [ ] Maintain `title: |md` multi-line labels from the base diagram.
+- [x] Maintain `title: |md` multi-line labels from the base diagram.
 - [x] Output the generated d2 diagram in the same directory as the source (to preserve relative import paths).
 - [ ] Support `# include class=<class-name>` to include entities of a specific class in the view.
 - [ ] Support wildcard references `# include pattern=something.*` to include multiple entities matching a pattern.

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,9 +15,10 @@ import (
 )
 
 var args struct {
-	Source      string `arg:"positional"`
-	Destination string `arg:"positional"`
+	Source      string `arg:"positional" help:"path to source D2 file with views"`
+	Destination string `arg:"positional" help:"path to output SVG file"`
 	Layout      string `arg:"-l,--layout" help:"layout engine to use (e.g., dagre, elk)"`
+	Debug       bool   `arg:"-d,--debug" help:"enable debug output - output intermediate AST files"`
 }
 
 func main() {
@@ -53,6 +55,15 @@ func main() {
 	if outputDir != "" {
 		err = ensureDirExists(outputDir)
 		checkErr(err, "Unable to create output directory")
+	}
+
+	if args.Debug {
+		debugOutputPath := viewOutputPath + ".debug.json"
+		jsonContent, err := json.MarshalIndent(graph, "", "    ")
+		checkErr(err, "failed to marshall graph as JSON")
+		err = os.WriteFile(debugOutputPath, jsonContent, 0644)
+		checkErr(err, "Unable to write debug output file")
+		color.Green("Wrote debug D2 output to %s", debugOutputPath)
 	}
 
 	err = os.WriteFile(viewOutputPath, []byte(viewContent), 0644)

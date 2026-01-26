@@ -2146,6 +2146,35 @@ layers: {
 }
 `,
 		},
+		{
+			name: "MarkdownObject",
+			content: `a: "Node A"
+
+layers: {
+    view1: { #view
+        title: |md
+        # Test Title
+        ## Subtitle
+        | {near: top-center}
+        a
+    }
+}
+`,
+			expected: `a: "Node A"
+
+layers: {
+    view1: {
+        title: |md
+    # Test Title
+    ## Subtitle
+    | {
+            near: top-center
+        }
+        a: "Node A"
+    }
+}
+`,
+		},
 	}
 
 	for _, tt := range tests {
