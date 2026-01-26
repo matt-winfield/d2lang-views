@@ -29,9 +29,6 @@ func main() {
 	content, err := os.ReadFile(args.Source)
 	checkErr(err, "Unable to read source file")
 
-	err = ensureDirExists(args.Destination)
-	checkErr(err, "Unable to create destination directory")
-
 	reader := bytes.NewReader(content)
 	graph, _, err := compile.CompileD2(args.Source, reader)
 	checkErr(err, "Unable to compile D2 content")
@@ -42,7 +39,16 @@ func main() {
 	viewContent, err := replaceViewLayers(sourceReader, graph, rootObjectIds)
 	checkErr(err, "Unable to replace view content")
 
-	viewOutputPath := getOutputFilePath(args.Source, args.Destination, "-views.d2")
+	// Output D2 file to same directory as source (to preserve relative imports)
+	viewOutputPath := getD2OutputPath(args.Source)
+
+	// Ensure output directory exists
+	outputDir := getDirectory(viewOutputPath)
+	if outputDir != "" {
+		err = ensureDirExists(outputDir)
+		checkErr(err, "Unable to create output directory")
+	}
+
 	err = os.WriteFile(viewOutputPath, []byte(viewContent), 0644)
 	checkErr(err, "Unable to write output file with views")
 
@@ -54,13 +60,23 @@ func main() {
 		layerNames = append(layerNames, layer.Name)
 	}
 
-	// Create subfolder for SVG output (same name as output d2 file without extension)
-	svgOutputDir := getOutputFilePath(args.Source, args.Destination, "-views")
+	// SVG output goes to the destination specified by user
+	svgOutputPath := args.Destination
+	svgOutputDir := stripExtension(svgOutputPath)
+
+	// Ensure SVG output directory exists
+	svgParentDir := getDirectory(svgOutputPath)
+	if svgParentDir != "" {
+		err = ensureDirExists(svgParentDir)
+		checkErr(err, "Unable to create SVG output directory")
+	}
+
+	// Create subfolder for layer SVGs (same name as output file without extension)
 	err = ensureDirExists(svgOutputDir)
-	checkErr(err, "Unable to create SVG output directory")
+	checkErr(err, "Unable to create SVG layers directory")
 
 	// Compile each layer to SVG using d2 CLI
-	err = render.RenderD2File(viewOutputPath, svgOutputDir+".svg", args.Layout)
+	err = render.RenderD2File(viewOutputPath, svgOutputPath, args.Layout)
 	checkErr(err, "Unable to compile layers to SVG")
 
 	for _, layerName := range layerNames {
@@ -95,28 +111,94 @@ func checkErr(err error, msg string) {
 	}
 }
 
-// getOutputFilePath constructs the output file path for the AST JSON
-// based on the source file name and destination directory.
-// It appends extension to the source file name after stripping the directory path and file extension.
-func getOutputFilePath(sourcePath, destinationDir string, extension string) string {
-	baseName := sourcePath
-	if idx := len(sourcePath) - 1; idx >= 0 {
-		for i := idx; i >= 0; i-- {
-			if sourcePath[i] == '/' || sourcePath[i] == '\\' {
-				baseName = sourcePath[i+1:]
-				break
-			}
+// getD2OutputPath constructs the output file path for the compiled D2 output.
+// It places the output file in the same directory as the source file (to preserve relative imports).
+// The output is always named <source_basename>-compiled.d2 to avoid overwriting the source.
+func getD2OutputPath(sourcePath string) string {
+	sourceDir := getDirectory(sourcePath)
+	sourceBasename := getBasename(sourcePath)
+
+	// Create compiled filename by inserting "-compiled" before extension
+	compiledBasename := insertSuffixBeforeExtension(sourceBasename, "-compiled")
+
+	if sourceDir == "" {
+		return compiledBasename
+	}
+	return sourceDir + "/" + compiledBasename
+}
+
+// getDirectory extracts the directory portion of a path.
+// Returns empty string if path has no directory component.
+func getDirectory(path string) string {
+	for i := len(path) - 1; i >= 0; i-- {
+		if path[i] == '/' || path[i] == '\\' {
+			return path[:i]
+		}
+	}
+	return ""
+}
+
+// getBasename extracts the filename from a path (including extension).
+func getBasename(path string) string {
+	for i := len(path) - 1; i >= 0; i-- {
+		if path[i] == '/' || path[i] == '\\' {
+			return path[i+1:]
+		}
+	}
+	return path
+}
+
+// insertSuffixBeforeExtension inserts a suffix before the file extension.
+// If no extension exists, the suffix is appended at the end.
+func insertSuffixBeforeExtension(path, suffix string) string {
+	basename := getBasename(path)
+	dir := getDirectory(path)
+
+	// Find the last dot in the basename
+	dotIdx := -1
+	for i := len(basename) - 1; i >= 0; i-- {
+		if basename[i] == '.' {
+			dotIdx = i
+			break
 		}
 	}
 
-	if dotIdx := len(baseName) - 1; dotIdx >= 0 {
-		for i := dotIdx; i >= 0; i-- {
-			if baseName[i] == '.' {
-				baseName = baseName[:i]
-				break
-			}
+	var newBasename string
+	if dotIdx == -1 {
+		newBasename = basename + suffix
+	} else {
+		newBasename = basename[:dotIdx] + suffix + basename[dotIdx:]
+	}
+
+	if dir == "" {
+		return newBasename
+	}
+	return dir + "/" + newBasename
+}
+
+// stripExtension removes the file extension from a path.
+func stripExtension(path string) string {
+	basename := getBasename(path)
+	dir := getDirectory(path)
+
+	// Find the last dot in the basename
+	dotIdx := -1
+	for i := len(basename) - 1; i >= 0; i-- {
+		if basename[i] == '.' {
+			dotIdx = i
+			break
 		}
 	}
 
-	return destinationDir + "/" + baseName + extension
+	var newBasename string
+	if dotIdx == -1 {
+		newBasename = basename
+	} else {
+		newBasename = basename[:dotIdx]
+	}
+
+	if dir == "" {
+		return newBasename
+	}
+	return dir + "/" + newBasename
 }

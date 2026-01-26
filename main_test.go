@@ -103,123 +103,50 @@ func TestEnsureDirExists_FileExistsAtPath(t *testing.T) {
 	}
 }
 
-func TestAstOutputPath(t *testing.T) {
+func TestGetD2OutputPath(t *testing.T) {
 	tests := []struct {
 		name       string
 		sourcePath string
-		destDir    string
 		expected   string
 	}{
 		{
-			name:       "simple filename",
-			sourcePath: "test.d2",
-			destDir:    "/output",
-			expected:   "/output/test-ast.json",
+			name:       "source with directory",
+			sourcePath: "/path/to/source.d2",
+			expected:   "/path/to/source-compiled.d2",
 		},
 		{
-			name:       "with directory",
-			sourcePath: "/path/to/file.d2",
-			destDir:    "/output",
-			expected:   "/output/file-ast.json",
+			name:       "source in current directory",
+			sourcePath: "source.d2",
+			expected:   "source-compiled.d2",
 		},
 		{
-			name:       "deep path",
-			sourcePath: "/very/deep/nested/path/to/diagram.d2",
-			destDir:    "/out",
-			expected:   "/out/diagram-ast.json",
+			name:       "deep nested source path",
+			sourcePath: "/very/deep/nested/path/diagram.d2",
+			expected:   "/very/deep/nested/path/diagram-compiled.d2",
 		},
 		{
-			name:       "relative path",
-			sourcePath: "relative/path/file.d2",
-			destDir:    "./output",
-			expected:   "./output/file-ast.json",
+			name:       "relative source path",
+			sourcePath: "./relative/path/source.d2",
+			expected:   "./relative/path/source-compiled.d2",
 		},
 		{
-			name:       "no extension",
-			sourcePath: "noextension",
-			destDir:    "/output",
-			expected:   "/output/noextension-ast.json",
+			name:       "source without extension",
+			sourcePath: "/path/to/source",
+			expected:   "/path/to/source-compiled",
 		},
 		{
-			name:       "multiple extensions",
-			sourcePath: "file.backup.d2",
-			destDir:    "/output",
-			expected:   "/output/file.backup-ast.json",
-		},
-		{
-			name:       "hidden file",
-			sourcePath: ".hidden.d2",
-			destDir:    "/output",
-			expected:   "/output/.hidden-ast.json",
-		},
-		{
-			name:       "windows style path",
-			sourcePath: "C:\\Users\\test\\file.d2",
-			destDir:    "/output",
-			expected:   "/output/file-ast.json",
-		},
-		{
-			name:       "mixed separators",
-			sourcePath: "path/to\\mixed/file.d2",
-			destDir:    "/output",
-			expected:   "/output/file-ast.json",
-		},
-		{
-			name:       "trailing slash in dest",
-			sourcePath: "file.d2",
-			destDir:    "/output/",
-			expected:   "/output//file-ast.json",
-		},
-		{
-			name:       "dot in directory",
-			sourcePath: "/path.with.dots/file.d2",
-			destDir:    "/output",
-			expected:   "/output/file-ast.json",
-		},
-		{
-			name:       "only extension",
-			sourcePath: ".d2",
-			destDir:    "/output",
-			expected:   "/output/-ast.json",
-		},
-		{
-			name:       "empty destination",
-			sourcePath: "file.d2",
-			destDir:    "",
-			expected:   "/file-ast.json",
-		},
-		{
-			name:       "different extension",
-			sourcePath: "diagram.txt",
-			destDir:    "/out",
-			expected:   "/out/diagram-ast.json",
-		},
-		{
-			name:       "long filename",
-			sourcePath: "this-is-a-very-long-filename-for-testing.d2",
-			destDir:    "/output",
-			expected:   "/output/this-is-a-very-long-filename-for-testing-ast.json",
-		},
-		{
-			name:       "current dir destination",
-			sourcePath: "file.d2",
-			destDir:    ".",
-			expected:   "./file-ast.json",
-		},
-		{
-			name:       "parent dir destination",
-			sourcePath: "file.d2",
-			destDir:    "..",
-			expected:   "../file-ast.json",
+			name:       "source with multiple dots",
+			sourcePath: "/path/to/my.diagram.d2",
+			expected:   "/path/to/my.diagram-compiled.d2",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := getOutputFilePath(tt.sourcePath, tt.destDir, "-ast.json")
+			result := getD2OutputPath(tt.sourcePath)
 			if result != tt.expected {
-				t.Errorf("astOutputPath(%q, %q) = %q, want %q",
-					tt.sourcePath, tt.destDir, result, tt.expected)
+				t.Errorf("getD2OutputPath(%q) = %q, want %q",
+					tt.sourcePath, result, tt.expected)
 			}
 		})
 	}

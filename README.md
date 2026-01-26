@@ -13,10 +13,12 @@ go install github.com/matt-winfield/d2lang-views@latest
 ## Usage
 
 ```bash
-d2lang-views ./path/to/diagram.d2 output/directory
+d2lang-views ./path/to/diagram.d2 output/diagram.svg
 ```
 
-Generates `<filename>-with-views.d2` with expanded view layers.
+This generates:
+- `<source-dir>/<filename>-compiled.d2` - Compiled D2 file in the same directory as the source (preserves relative import paths)
+- `output/diagram/` - SVG files including `index.svg` and individual layer SVGs
 
 ## How It Works
 
@@ -232,7 +234,7 @@ The `#relabel` comment:
 - [ ] Allow removing edges from views (using `#remove` syntax).
 - [ ] Preserve edge styles/classes/properties from the base diagram.
 - [ ] Maintain `title: |md` multi-line labels from the base diagram.
-- [ ] Output the generated d2 diagram in the same directory as the source (to preserve relative import paths).
+- [x] Output the generated d2 diagram in the same directory as the source (to preserve relative import paths).
 - [ ] Support `# include class=<class-name>` to include entities of a specific class in the view.
 - [ ] Support wildcard references `# include pattern=something.*` to include multiple entities matching a pattern.
 - [ ] Support auto-including parent containers via `# parents` comment following the entity reference.
@@ -247,7 +249,7 @@ The `#relabel` comment:
 go build
 
 # Run without building
-go run . ./path/to/diagram.d2 output/directory
+go run . ./path/to/diagram.d2 output/diagram.svg
 
 # Test
 go test ./...

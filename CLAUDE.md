@@ -20,10 +20,10 @@ go build
 
 ```bash
 # Run without building
-go run . ./path/to/diagram.d2 output/directory
+go run . ./path/to/diagram.d2 output/diagram.svg
 
 # Or after building
-./d2lang-views ./path/to/diagram.d2 output/directory
+./d2lang-views ./path/to/diagram.d2 output/diagram.svg
 ```
 
 ### Testing
@@ -90,11 +90,19 @@ The range operation system allows merging overlapping replacements and insertion
 Entry point and CLI handling:
 
 -   Uses `github.com/alexflint/go-arg` for argument parsing
--   Requires source D2 file path and output directory
+-   Requires source D2 file path and SVG output path
 -   Outputs:
-    -   `<filename>-graph.json` - JSON representation of the compiled graph
-    -   `<filename>-with-views.d2` - Modified D2 file with expanded views
+    -   `<source-dir>/<filename>-compiled.d2` - Compiled D2 file in the same directory as the source (preserves relative import paths)
+    -   `<svg-output-path>` - SVG files in the specified output location
 -   Uses `github.com/fatih/color` for colored terminal output
+
+**Output behavior:**
+
+The tool generates two types of output:
+
+1. **D2 file**: Always placed in the same directory as the source file with `-compiled` suffix (e.g., `source.d2` → `source-compiled.d2`). This preserves relative import paths that may be used in the diagram.
+
+2. **SVG files**: Placed in the location specified by the destination argument. The D2 CLI is invoked to render the compiled D2 file into SVG format, creating a folder structure with an `index.svg` and individual layer SVG files.
 
 ## Key Concepts
 
