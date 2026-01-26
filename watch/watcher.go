@@ -2,7 +2,6 @@ package watch
 
 import (
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -76,30 +75,21 @@ func (w *Watcher) Stop() error {
 	return w.fsWatcher.Close()
 }
 
-// UpdateWatchedFiles reads the source file, extracts imports, and updates the watched files.
+// UpdateWatchedFiles reads the source file, extracts imports (including nested imports),
+// and updates the watched files.
 // This should be called after each successful compilation to pick up new imports.
 func (w *Watcher) UpdateWatchedFiles() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	// Read the source file
-	content, err := os.ReadFile(w.sourcePath)
-	if err != nil {
-		return fmt.Errorf("failed to read source file: %w", err)
-	}
-
-	// Extract imports
-	imports := ExtractImports(string(content))
-	importPaths := ResolveImportPaths(w.sourcePath, imports)
+	// Extract all imports recursively (handles nested imports)
+	importPaths := ExtractAllImports(w.sourcePath)
 
 	// Build the new set of files to watch
 	newFiles := make(map[string]struct{})
 	newFiles[w.sourcePath] = struct{}{}
 	for _, path := range importPaths {
-		// Only add if file exists
-		if _, err := os.Stat(path); err == nil {
-			newFiles[path] = struct{}{}
-		}
+		newFiles[path] = struct{}{}
 	}
 
 	// Remove watches for files no longer needed

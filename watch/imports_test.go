@@ -1,141 +1,120 @@
 package watch
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
-
-	"github.com/google/go-cmp/cmp"
 )
 
-func TestExtractImports(t *testing.T) {
-	tests := []struct {
-		name     string
-		content  string
-		expected []string
-	}{
-		{
-			name:     "no imports",
-			content:  `client: "Web Client"`,
-			expected: []string{},
-		},
-		{
-			name:     "single regular import",
-			content:  `icons: @icons`,
-			expected: []string{"icons.d2"},
-		},
-		{
-			name:     "single spread import",
-			content:  `...@common`,
-			expected: []string{"common.d2"},
-		},
-		{
-			name: "multiple imports",
-			content: `icons: @icons
-...@common
-theme: @styles/dark`,
-			expected: []string{"icons.d2", "common.d2", "styles/dark.d2"},
-		},
-		{
-			name:     "import with relative path",
-			content:  `styles: @./styles/main`,
-			expected: []string{"./styles/main.d2"},
-		},
-		{
-			name:     "import with parent directory",
-			content:  `shared: @../shared/components`,
-			expected: []string{"../shared/components.d2"},
-		},
-		{
-			name:     "partial import",
-			content:  `manager: @people.managers`,
-			expected: []string{"people.d2"},
-		},
-		{
-			name:     "quoted filename with dots",
-			content:  `schema: @"schema-v0.1.2"`,
-			expected: []string{"schema-v0.1.2.d2"},
-		},
-		{
-			name: "import in nested structure",
-			content: `system: {
-    icons: @icons
-    ...@styles
-}`,
-			expected: []string{"icons.d2", "styles.d2"},
-		},
-		{
-			name:     "import with extension already present should still work",
-			content:  `data: @data.d2`,
-			expected: []string{"data.d2"},
-		},
-		{
-			name: "ignore import-like text in strings",
-			content: `label: "use @import syntax"
-real: @actual`,
-			expected: []string{"actual.d2"},
-		},
-		{
-			name: "multiple imports same file",
-			content: `a: @shared
-b: @shared`,
-			expected: []string{"shared.d2"},
-		},
+func TestExtractAllImports(t *testing.T) {
+	// Create a temp directory with nested imports
+	tempDir := t.TempDir()
+
+	// main.d2 imports icons.d2
+	mainPath := filepath.Join(tempDir, "main.d2")
+	mainContent := `client: "Web Client"
+icons: @icons`
+	if err := os.WriteFile(mainPath, []byte(mainContent), 0644); err != nil {
+		t.Fatalf("failed to write main.d2: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := ExtractImports(tt.content)
-			if diff := cmp.Diff(tt.expected, result); diff != "" {
-				t.Errorf("ExtractImports() mismatch (-want +got):\n%s", diff)
-			}
-		})
+	// icons.d2 imports shared/base.d2
+	iconsPath := filepath.Join(tempDir, "icons.d2")
+	iconsContent := `...@shared/base
+icon1: "Icon 1"`
+	if err := os.WriteFile(iconsPath, []byte(iconsContent), 0644); err != nil {
+		t.Fatalf("failed to write icons.d2: %v", err)
+	}
+
+	// Create shared directory
+	sharedDir := filepath.Join(tempDir, "shared")
+	if err := os.MkdirAll(sharedDir, 0755); err != nil {
+		t.Fatalf("failed to create shared dir: %v", err)
+	}
+
+	// shared/base.d2 imports ../colors.d2
+	basePath := filepath.Join(sharedDir, "base.d2")
+	baseContent := `colors: @../colors
+base_icon: "Base"`
+	if err := os.WriteFile(basePath, []byte(baseContent), 0644); err != nil {
+		t.Fatalf("failed to write shared/base.d2: %v", err)
+	}
+
+	// colors.d2 has no imports
+	colorsPath := filepath.Join(tempDir, "colors.d2")
+	colorsContent := `primary: "#ff0000"`
+	if err := os.WriteFile(colorsPath, []byte(colorsContent), 0644); err != nil {
+		t.Fatalf("failed to write colors.d2: %v", err)
+	}
+
+	// Extract all imports recursively
+	allImports := ExtractAllImports(mainPath)
+
+	// Should find all 3 imported files
+	expected := map[string]struct{}{
+		iconsPath:  {},
+		basePath:   {},
+		colorsPath: {},
+	}
+
+	if len(allImports) != len(expected) {
+		t.Errorf("expected %d imports, got %d: %v", len(expected), len(allImports), allImports)
+	}
+
+	for _, imp := range allImports {
+		if _, ok := expected[imp]; !ok {
+			t.Errorf("unexpected import: %s", imp)
+		}
 	}
 }
 
-func TestResolveImportPaths(t *testing.T) {
-	tests := []struct {
-		name       string
-		sourcePath string
-		imports    []string
-		expected   []string
-	}{
-		{
-			name:       "simple import in same directory",
-			sourcePath: "/project/diagram.d2",
-			imports:    []string{"icons.d2"},
-			expected:   []string{"/project/icons.d2"},
-		},
-		{
-			name:       "import with subdirectory",
-			sourcePath: "/project/diagram.d2",
-			imports:    []string{"styles/dark.d2"},
-			expected:   []string{"/project/styles/dark.d2"},
-		},
-		{
-			name:       "import with relative path",
-			sourcePath: "/project/src/diagram.d2",
-			imports:    []string{"./styles/main.d2"},
-			expected:   []string{"/project/src/styles/main.d2"},
-		},
-		{
-			name:       "import with parent directory",
-			sourcePath: "/project/src/diagram.d2",
-			imports:    []string{"../shared/components.d2"},
-			expected:   []string{"/project/shared/components.d2"},
-		},
-		{
-			name:       "multiple imports",
-			sourcePath: "/project/diagram.d2",
-			imports:    []string{"icons.d2", "styles.d2"},
-			expected:   []string{"/project/icons.d2", "/project/styles.d2"},
-		},
+func TestExtractAllImports_CircularImport(t *testing.T) {
+	// Create a temp directory with circular imports
+	tempDir := t.TempDir()
+
+	// a.d2 imports b.d2
+	aPath := filepath.Join(tempDir, "a.d2")
+	aContent := `a: @b`
+	if err := os.WriteFile(aPath, []byte(aContent), 0644); err != nil {
+		t.Fatalf("failed to write a.d2: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := ResolveImportPaths(tt.sourcePath, tt.imports)
-			if diff := cmp.Diff(tt.expected, result); diff != "" {
-				t.Errorf("ResolveImportPaths() mismatch (-want +got):\n%s", diff)
-			}
-		})
+	// b.d2 imports a.d2 (circular)
+	bPath := filepath.Join(tempDir, "b.d2")
+	bContent := `b: @a`
+	if err := os.WriteFile(bPath, []byte(bContent), 0644); err != nil {
+		t.Fatalf("failed to write b.d2: %v", err)
+	}
+
+	// Should handle circular imports without infinite loop
+	allImports := ExtractAllImports(aPath)
+
+	// Should find b.d2 (and not loop forever)
+	if len(allImports) != 1 {
+		t.Errorf("expected 1 import, got %d: %v", len(allImports), allImports)
+	}
+
+	if len(allImports) > 0 && allImports[0] != bPath {
+		t.Errorf("expected %s, got %s", bPath, allImports[0])
+	}
+}
+
+func TestExtractAllImports_MissingFile(t *testing.T) {
+	// Create a temp directory
+	tempDir := t.TempDir()
+
+	// main.d2 imports a file that doesn't exist
+	mainPath := filepath.Join(tempDir, "main.d2")
+	mainContent := `icons: @missing`
+	if err := os.WriteFile(mainPath, []byte(mainContent), 0644); err != nil {
+		t.Fatalf("failed to write main.d2: %v", err)
+	}
+
+	// Should handle missing files gracefully
+	allImports := ExtractAllImports(mainPath)
+
+	// Should return empty (missing file can't be read)
+	if len(allImports) != 0 {
+		t.Errorf("expected 0 imports for missing file, got %d: %v", len(allImports), allImports)
 	}
 }

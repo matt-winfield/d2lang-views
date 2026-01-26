@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -13,9 +14,9 @@ import (
 // - Partial imports: @file.subpath (only captures 'file' part)
 var importPattern = regexp.MustCompile(`@("([^"]+)"|([a-zA-Z0-9_./\-]+))`)
 
-// ExtractImports extracts all import file paths from D2 content.
+// extractImports extracts all import file paths from D2 content.
 // Returns a deduplicated list of import paths with .d2 extension added.
-func ExtractImports(content string) []string {
+func extractImports(content string) []string {
 	seen := make(map[string]struct{})
 	imports := []string{}
 
@@ -106,11 +107,11 @@ func extractBaseImport(importPath string) string {
 	return prefix + filename
 }
 
-// ResolveImportPaths resolves import paths relative to the source file's directory.
+// resolveImportPaths resolves import paths relative to the source file's directory.
 // sourcePath is the path to the D2 source file.
 // imports is a list of import paths extracted from the source.
 // Returns absolute paths to the imported files.
-func ResolveImportPaths(sourcePath string, imports []string) []string {
+func resolveImportPaths(sourcePath string, imports []string) []string {
 	sourceDir := filepath.Dir(sourcePath)
 	resolved := make([]string, 0, len(imports))
 
@@ -122,4 +123,64 @@ func ResolveImportPaths(sourcePath string, imports []string) []string {
 	}
 
 	return resolved
+}
+
+// ExtractAllImports recursively extracts all import file paths from a D2 file
+// and all files it imports. This handles nested imports where an imported file
+// may itself import other files.
+// Returns a deduplicated list of absolute paths to all imported files.
+// Handles circular imports by tracking visited files.
+func ExtractAllImports(sourcePath string) []string {
+	visited := make(map[string]struct{})
+	var result []string
+
+	// Start recursive extraction
+	extractImportsRecursive(sourcePath, visited, &result)
+
+	return result
+}
+
+// extractImportsRecursive is a helper that recursively extracts imports.
+// visited tracks files we've already processed to handle circular imports.
+// result accumulates all discovered import paths.
+func extractImportsRecursive(filePath string, visited map[string]struct{}, result *[]string) {
+	// Normalize the path
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return
+	}
+	absPath = filepath.Clean(absPath)
+
+	// Skip if already visited (handles circular imports)
+	if _, ok := visited[absPath]; ok {
+		return
+	}
+	visited[absPath] = struct{}{}
+
+	// Read the file
+	content, err := os.ReadFile(absPath)
+	if err != nil {
+		// File doesn't exist or can't be read - skip it
+		return
+	}
+
+	// Extract direct imports from this file
+	imports := extractImports(string(content))
+	importPaths := resolveImportPaths(absPath, imports)
+
+	// Process each import
+	for _, importPath := range importPaths {
+		// Check if file exists
+		if _, err := os.Stat(importPath); err != nil {
+			continue
+		}
+
+		// Add to result if not the source file and not already added
+		if _, ok := visited[importPath]; !ok {
+			*result = append(*result, importPath)
+		}
+
+		// Recursively process this import's imports
+		extractImportsRecursive(importPath, visited, result)
+	}
 }
