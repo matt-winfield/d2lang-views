@@ -23,7 +23,8 @@ func ProcessViews(viewLayers []*d2graph.Graph, graph *d2graph.Graph) []View {
 
 // processView processes a single view layer and constructs a View object from it.
 func processView(layer *d2graph.Graph, graph *d2graph.Graph) View {
-	explicitIds := getExplicitObjectIds(layer)
+	includeParentsRefs := compile.GetIncludeParentsReferences(graph, layer.Name)
+	explicitIds := getExplicitObjectIds(layer, includeParentsRefs)
 
 	return View{
 		Name:    layer.Name,
@@ -52,8 +53,9 @@ func processViewObjects(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds 
 
 // getExplicitObjectIds returns a set of absolute IDs for objects that are explicitly referenced in the layer.
 // An object is explicit if it has at least one reference where the reference path length equals the object's path depth.
+// When a reference has the #include-parents comment, all ancestors in that reference path are also marked as explicit.
 // Keys are stored in lowercase for case-insensitive matching.
-func getExplicitObjectIds(layer *d2graph.Graph) map[string]struct{} {
+func getExplicitObjectIds(layer *d2graph.Graph, includeParentsRefs map[string]struct{}) map[string]struct{} {
 	explicitIds := make(map[string]struct{})
 
 	for _, obj := range layer.Objects {
@@ -61,14 +63,42 @@ func getExplicitObjectIds(layer *d2graph.Graph) map[string]struct{} {
 		pathLen := getPathDepth(absId)
 
 		for _, ref := range obj.References {
+			// Convert reference path to string
+			refPathParts := make([]string, len(ref.Key.Path))
+			for i, part := range ref.Key.Path {
+				refPathParts[i] = part.Unbox().ScalarString()
+			}
+			refPath := strings.Join(refPathParts, ".")
+
+			// Check if this reference has the #include-parents comment
+			_, hasIncludeParents := includeParentsRefs[strings.ToLower(refPath)]
+
 			if len(ref.Key.Path) == pathLen {
 				explicitIds[strings.ToLower(absId)] = struct{}{}
+
+				// If #include-parents is present, mark all ancestors as explicit
+				if hasIncludeParents {
+					markAncestorsAsExplicit(obj, explicitIds)
+				}
 				break
 			}
 		}
 	}
 
 	return explicitIds
+}
+
+// markAncestorsAsExplicit walks up the parent chain and marks all ancestors as explicit.
+func markAncestorsAsExplicit(obj *d2graph.Object, explicitIds map[string]struct{}) {
+	current := obj.Parent
+	for current != nil {
+		absId := compile.GetAbsoluteId(current)
+		if absId == "" {
+			break // Reached root
+		}
+		explicitIds[strings.ToLower(absId)] = struct{}{}
+		current = current.Parent
+	}
 }
 
 // getPathDepth returns the depth of a dot-separated path (number of segments).

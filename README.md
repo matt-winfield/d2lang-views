@@ -138,7 +138,9 @@ Notice that `system` is not included because it wasn't explicitly referenced - o
 
 ### Including Parent Containers
 
-If you want to preserve the parent container, explicitly include it:
+By default, when you reference a nested entity like `system.api`, only the leaf entity is included (the parent `system` is filtered out). You have two options to include parent containers:
+
+**Option 1: Explicitly list all containers**
 
 ```d2
 system: {
@@ -169,6 +171,43 @@ layers: {
     }
 }
 ```
+
+**Option 2: Use `# include-parents` comment**
+
+Add `# include-parents` after any entity reference to automatically include all its parent containers:
+
+```d2
+system: {
+    api: "API Gateway" {
+        auth: "Auth Service"
+    }
+}
+
+system.api.auth -> database
+
+layers: {
+    auth_view: { #view
+        system.api.auth # include-parents
+        database
+    }
+}
+```
+
+Generates:
+
+```d2
+layers: {
+    auth_view: {
+        system: "System"
+        system.api: "API Gateway"
+        system.api.auth: "Auth Service"
+        database
+        system.api.auth -> database
+    }
+}
+```
+
+The `# include-parents` comment is particularly useful for deeply nested entities where listing all ancestors would be tedious.
 
 ### Multiple Views
 
@@ -274,6 +313,7 @@ Edge styles, classes, and other properties from the base diagram are automatical
 - Relationship copying between referenced entities
 - Support for nested entities (with implicit parent filtering)
 - Extract nested children without their parent containers
+- Auto-include parent containers with `# include-parents` comment
 - Preserve edge styles, classes, and properties from base diagram
 - Override edge properties with `#override` for view-specific context
 - Custom view layer names
@@ -293,7 +333,7 @@ Edge styles, classes, and other properties from the base diagram are automatical
 - [ ] Support disabling outputting the compiled D2 file via CLI option.
 - [ ] Support `# include class=<class-name>` to include entities of a specific class in the view. (tagging)
 - [ ] Support wildcard references `# include pattern=something.*` to include multiple entities matching a pattern.
-- [ ] Support auto-including parent containers via `# parents` comment following the entity reference.
+- [x] Support auto-including parent containers via `# include-parents` comment following the entity reference.
 - [x] Include comments around the generated view definitions for clarity. Include the version of the tool used to generate it.
 - [x] Automatically compile the generated view diagrams using the D2 CLI.
 - [x] Watch mode to monitor changes in the source diagram and regenerate views automatically.

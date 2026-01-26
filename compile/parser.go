@@ -259,3 +259,64 @@ func getEdgeLabelFromValue(value d2ast.ValueBox) string {
 	}
 	return ""
 }
+
+// GetIncludeParentsReferences returns a set of reference paths that have the #include-parents comment.
+// Keys are stored in lowercase for case-insensitive matching.
+func GetIncludeParentsReferences(graph *d2graph.Graph, viewName string) map[string]struct{} {
+	result := make(map[string]struct{})
+
+	viewNodes := getViewASTNodes(graph, viewName)
+	if viewNodes == nil {
+		return result
+	}
+
+	for i, node := range viewNodes {
+		if path := extractIncludeParentsReference(node, viewNodes, i); path != "" {
+			result[strings.ToLower(path)] = struct{}{}
+		}
+	}
+
+	return result
+}
+
+// extractIncludeParentsReference checks if the node at index i is a reference with an inline #include-parents comment.
+// Returns the reference path if found, otherwise returns empty string.
+func extractIncludeParentsReference(node d2ast.MapNodeBox, nodes []d2ast.MapNodeBox, i int) string {
+	if node.MapKey == nil || node.MapKey.Key == nil {
+		return ""
+	}
+
+	// Skip nodes that define edges (we only want object references)
+	if len(node.MapKey.Edges) > 0 {
+		return ""
+	}
+
+	if !hasInlineIncludeParentsComment(node, nodes, i) {
+		return ""
+	}
+
+	return getKeyPathString(node.MapKey.Key)
+}
+
+// hasInlineIncludeParentsComment checks if the next node is a #include-parents comment on the same line.
+func hasInlineIncludeParentsComment(node d2ast.MapNodeBox, nodes []d2ast.MapNodeBox, i int) bool {
+	if i+1 >= len(nodes) {
+		return false
+	}
+
+	nextNode := nodes[i+1]
+	if nextNode.Comment == nil {
+		return false
+	}
+
+	if strings.TrimSpace(nextNode.Comment.Value) != "include-parents" {
+		return false
+	}
+
+	commentLine := nextNode.Comment.Range.Start.Line
+	refStartLine := node.MapKey.Range.Start.Line
+	refEndLine := node.MapKey.Range.End.Line
+
+	// Comment can be on the start line (single-line reference) or end line (multi-line block)
+	return commentLine == refStartLine || commentLine == refEndLine
+}

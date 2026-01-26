@@ -2149,6 +2149,112 @@ layers: {
 `,
 		},
 		{
+			name: "IncludeParents_NestedChild",
+			content: `parent: "Parent Label" {
+    child: "Child Label"
+}
+layers: {
+    view1: { #view
+        parent.child # include-parents
+    }
+}
+`,
+			expected: `parent: "Parent Label" {
+    child: "Child Label"
+}
+layers: {
+    view1: {
+        parent: "Parent Label"
+        parent.child: "Child Label"
+    }
+}
+`,
+		},
+		{
+			name: "IncludeParents_DeeplyNested",
+			content: `a: "Node A" {
+    b: "Node B" {
+        c: "Node C"
+    }
+}
+layers: {
+    view1: { #view
+        a.b.c # include-parents
+    }
+}
+`,
+			expected: `a: "Node A" {
+    b: "Node B" {
+        c: "Node C"
+    }
+}
+layers: {
+    view1: {
+        a: "Node A"
+        a.b: "Node B"
+        a.b.c: "Node C"
+    }
+}
+`,
+		},
+		{
+			name: "IncludeParents_WithEdges",
+			content: `a: "Node A" {
+    b: "Node B"
+}
+a.b -> c
+layers: {
+    view1: { #view
+        a.b # include-parents
+        c
+    }
+}
+`,
+			expected: `a: "Node A" {
+    b: "Node B"
+}
+a.b -> c
+layers: {
+    view1: {
+        a: "Node A"
+        a.b: "Node B"
+        c
+        a.b -> c
+    }
+}
+`,
+		},
+		{
+			name: "IncludeParents_MixedWithoutComment",
+			content: `parent1: "Parent 1" {
+    child1: "Child 1"
+}
+parent2: "Parent 2" {
+    child2: "Child 2"
+}
+layers: {
+    view1: { #view
+        parent1.child1 # include-parents
+        parent2.child2
+    }
+}
+`,
+			expected: `parent1: "Parent 1" {
+    child1: "Child 1"
+}
+parent2: "Parent 2" {
+    child2: "Child 2"
+}
+layers: {
+    view1: {
+        parent1: "Parent 1"
+        parent1.child1: "Child 1"
+        child2: "Child 2"
+    }
+}
+`,
+		},
+		{
 			name: "MarkdownObject",
 			content: `a: "Node A"
 
