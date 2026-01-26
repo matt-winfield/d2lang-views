@@ -65,8 +65,17 @@ func isViewNode(node d2ast.MapNodeBox) bool {
 	}
 
 	for _, child := range node.MapKey.Value.Map.Nodes {
-		if child.Comment != nil && strings.TrimSpace(child.Comment.Value) == "view" {
-			return true
+		if child.Comment == nil {
+			continue
+		}
+
+		// Consecutive lines in a comment block get combined into a single comment node
+		// so we need to check each line individually
+		lines := strings.Split(child.Comment.Value, "\n")
+		for _, line := range lines {
+			if strings.TrimSpace(line) == "view" {
+				return true
+			}
 		}
 	}
 

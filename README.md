@@ -17,6 +17,7 @@ d2lang-views ./path/to/diagram.d2 output/diagram.svg
 ```
 
 This generates:
+
 - `<source-dir>/<filename>-compiled.d2` - Compiled D2 file in the same directory as the source (preserves relative import paths)
 - `output/diagram/` - SVG files including `index.svg` and individual layer SVGs
 
@@ -254,7 +255,7 @@ Edge styles, classes, and other properties from the base diagram are automatical
 - [ ] Support `# include class=<class-name>` to include entities of a specific class in the view.
 - [ ] Support wildcard references `# include pattern=something.*` to include multiple entities matching a pattern.
 - [ ] Support auto-including parent containers via `# parents` comment following the entity reference.
-- [ ] Include comments around the generated view definitions for clarity.
+- [ ] Include comments around the generated view definitions for clarity. Include the version of the tool used to generate it.
 - [x] Automatically compile the generated view diagrams using the D2 CLI.
 - [ ] Watch mode to monitor changes in the source diagram and regenerate views automatically.
 

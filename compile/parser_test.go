@@ -348,6 +348,32 @@ layers: {
 	}
 }
 
+func TestEdgeCase_ConsecutiveComments(t *testing.T) {
+	// D2 parser may merge consecutive comments or handle them differently.
+	// Test that a view comment with content after it is detected.
+	content := `
+layers: {
+    myview: {
+        # view
+        # another comment after content
+        a
+    }
+}
+`
+	reader := strings.NewReader(content)
+	d2graph, _, err := CompileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("failed to parse: %v", err)
+	}
+
+	views := GetViewsNodes(d2graph)
+
+	viewName := views[0].Name
+	if viewName != "myview" {
+		t.Fatalf("expected view to be detected when # view comment exists with other comments, got '%s'", viewName)
+	}
+}
+
 func TestEdgeCase_SpecialCharactersInEntityNames(t *testing.T) {
 	content := `
 "entity-with-dashes": "Display Name"
@@ -695,8 +721,8 @@ layers: {
     }
 }
 `,
-			viewName:       "view1",
-			expectedCount:  1,
+			viewName:      "view1",
+			expectedCount: 1,
 			// Note: Label is extracted from ViewEdge in processor, not from parser
 			// Parser only detects override edges, labels with blocks are handled separately
 			expectedLabels: []string{},
