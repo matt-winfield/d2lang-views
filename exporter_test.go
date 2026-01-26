@@ -6,7 +6,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/matt-winfield/d2lang-views/compile"
+	"github.com/matt-winfield/d2lang-views/version"
 	"oss.terrastruct.com/d2/d2ast"
+	"oss.terrastruct.com/d2/d2graph"
 )
 
 func TestReplaceViewLayers(t *testing.T) {
@@ -2193,11 +2195,52 @@ layers: {
 				t.Fatalf("replaceViewLayers failed: %v", err)
 			}
 
-			if diff := cmp.Diff(tt.expected, result); diff != "" {
+			// Add expected headers to the test expectation
+			expected := addExpectedHeaders(tt.expected, graph)
+
+			if diff := cmp.Diff(expected, result); diff != "" {
 				t.Errorf("unexpected result (-expected +got):\n%s", diff)
 			}
 		})
 	}
+}
+
+// addExpectedHeaders adds the file header and view comments to the expected output.
+// This helper allows existing tests to remain unchanged while validating the new header behavior.
+func addExpectedHeaders(expected string, graph *d2graph.Graph) string {
+	if expected == "" {
+		return version.GeneratedFileHeader()
+	}
+
+	// Add file header
+	result := version.GeneratedFileHeader() + expected
+
+	// Add view comments inside each view layer
+	viewLayers := compile.GetViewsNodes(graph)
+	for _, view := range viewLayers {
+		// Find the view opening in the result and add the comment
+		viewOpening := view.Name + ": {"
+		viewOpeningWithLabel := view.Name + ": \""
+
+		// Handle views with labels
+		if strings.Contains(result, viewOpeningWithLabel) {
+			// Find the opening brace after the label
+			idx := strings.Index(result, viewOpeningWithLabel)
+			if idx != -1 {
+				// Find the { after this point
+				braceIdx := strings.Index(result[idx:], "{")
+				if braceIdx != -1 {
+					insertPoint := idx + braceIdx + 1
+					// Insert the comment after the brace and newline
+					result = result[:insertPoint] + "\n        " + version.GeneratedViewHeader() + result[insertPoint+1:]
+				}
+			}
+		} else if strings.Contains(result, viewOpening) {
+			result = strings.Replace(result, viewOpening+"\n", viewOpening+"\n        "+version.GeneratedViewHeader(), 1)
+		}
+	}
+
+	return result
 }
 
 // Helper to create a d2ast.Range with just byte positions
@@ -2293,5 +2336,105 @@ func TestApplyRangeOperations(t *testing.T) {
 				t.Errorf("expected %q, got %q", tt.expected, result)
 			}
 		})
+	}
+}
+
+func TestReplaceViewLayers_FileHeaderComment(t *testing.T) {
+	content := `a: "Entity A"
+
+layers: {
+    view1: { #view
+        a
+    }
+}
+`
+
+	reader := strings.NewReader(content)
+	graph, _, err := compile.CompileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
+
+	reader2 := strings.NewReader(content)
+	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
+	if err != nil {
+		t.Fatalf("replaceViewLayers failed: %v", err)
+	}
+
+	expectedHeader := version.GeneratedFileHeader()
+	if !strings.HasPrefix(result, expectedHeader) {
+		t.Errorf("output should start with generated file header.\nExpected prefix: %q\nGot: %q", expectedHeader, result[:min(len(result), 100)])
+	}
+}
+
+func TestReplaceViewLayers_ViewHeaderComment(t *testing.T) {
+	content := `a: "Entity A"
+
+layers: {
+    view1: { #view
+        a
+    }
+}
+`
+
+	reader := strings.NewReader(content)
+	graph, _, err := compile.CompileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
+
+	reader2 := strings.NewReader(content)
+	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
+	if err != nil {
+		t.Fatalf("replaceViewLayers failed: %v", err)
+	}
+
+	// Check that the view contains the generated comment
+	expectedViewComment := "# Generated using " + version.RepoURL
+	if !strings.Contains(result, "view1: {\n        "+expectedViewComment) {
+		t.Errorf("view should contain generated comment.\nExpected to contain: %q\nGot: %q", expectedViewComment, result)
+	}
+}
+
+func TestReplaceViewLayers_MultipleViewsHaveComments(t *testing.T) {
+	content := `a: "Entity A"
+b: "Entity B"
+
+layers: {
+    view1: { #view
+        a
+    }
+    view2: { #view
+        b
+    }
+}
+`
+
+	reader := strings.NewReader(content)
+	graph, _, err := compile.CompileD2("test.d2", reader)
+	if err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
+
+	reader2 := strings.NewReader(content)
+	result, err := replaceViewLayers(reader2, graph, rootObjectIds)
+	if err != nil {
+		t.Fatalf("replaceViewLayers failed: %v", err)
+	}
+
+	// Both views should have the comment
+	expectedViewComment := "# Generated using " + version.RepoURL
+
+	// Count occurrences of the comment (should be at least 2 - one in each view)
+	// Plus 1 for the file header
+	count := strings.Count(result, expectedViewComment)
+	if count < 3 {
+		t.Errorf("expected at least 3 occurrences of generated comment (1 file header + 2 views), got %d.\nResult: %s", count, result)
 	}
 }

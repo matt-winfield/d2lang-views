@@ -8,6 +8,7 @@ import (
 
 	"github.com/matt-winfield/d2lang-views/compile"
 	"github.com/matt-winfield/d2lang-views/d2view"
+	"github.com/matt-winfield/d2lang-views/version"
 	"oss.terrastruct.com/d2/d2ast"
 	"oss.terrastruct.com/d2/d2graph"
 )
@@ -35,7 +36,10 @@ func replaceViewLayers(reader io.Reader, graph *d2graph.Graph, rootObjectIds []s
 		})
 	}
 
-	return applyRangeOperations(source, operations), nil
+	result := applyRangeOperations(source, operations)
+
+	// Add file header comment at the start of the generated output
+	return version.GeneratedFileHeader() + result, nil
 }
 
 type viewContentRangeResult struct {
@@ -108,6 +112,10 @@ func generateViewContent(view d2view.View) string {
 	var builder strings.Builder
 
 	builder.WriteString(getLayerDefinition(view))
+
+	// Add generated view header comment
+	builder.WriteString("    ")
+	builder.WriteString(version.GeneratedViewHeader())
 
 	// Output view-level keywords (direction, etc.)
 	builder.WriteString(getViewLevelKeywordsRepresentation(view))

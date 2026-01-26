@@ -15,11 +15,12 @@ import (
 	"github.com/fatih/color"
 	"github.com/matt-winfield/d2lang-views/compile"
 	"github.com/matt-winfield/d2lang-views/render"
+	"github.com/matt-winfield/d2lang-views/version"
 	"github.com/matt-winfield/d2lang-views/watch"
 	"oss.terrastruct.com/d2/d2graph"
 )
 
-var args struct {
+type argsType struct {
 	Source      string `arg:"positional" help:"path to source D2 file with views"`
 	Destination string `arg:"positional" help:"path to output SVG file"`
 	Layout      string `arg:"-l,--layout" help:"layout engine to use (e.g., dagre, elk)"`
@@ -27,6 +28,13 @@ var args struct {
 	ViewsOnly   bool   `arg:"--views-only" help:"only output SVGs for view layers (marked with #view)"`
 	Watch       bool   `arg:"-w,--watch" help:"watch source file and imports for changes, automatically recompile"`
 }
+
+// Version returns the version string for the --version flag
+func (argsType) Version() string {
+	return "d2lang-views " + version.Version()
+}
+
+var args argsType
 
 func main() {
 	arg.MustParse(&args)

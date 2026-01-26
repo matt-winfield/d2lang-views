@@ -16,6 +16,16 @@ The tool scans D2 files for layers marked with a `#view` comment and generates n
 go build
 ```
 
+### Install (with automatic version detection)
+
+```bash
+# Install from a specific version tag - version is automatically embedded
+go install github.com/matt-winfield/d2lang-views@v1.3.0
+
+# Or build locally with manual version override
+go build -ldflags "-X github.com/matt-winfield/d2lang-views/version.version=v1.3.0"
+```
+
 ### Run
 
 ```bash
@@ -85,7 +95,24 @@ Generates view content by replacing view layer references with full entity defin
 
 The range operation system allows merging overlapping replacements and insertions while preserving source positions.
 
-### 4. Main (main.go)
+### 4. Version (version/version.go)
+
+Provides version information for generated output:
+
+-   `RepoURL` - Constant containing the GitHub repository URL
+-   `Version()` - Returns the version, auto-detected from build info or ldflags
+-   `GeneratedFileHeader()` - Returns the comment for the start of generated D2 files
+-   `GeneratedViewHeader()` - Returns the comment for the start of each generated view
+
+The version is automatically detected using `runtime/debug.ReadBuildInfo()`:
+1. Module version when installed via `go install @version`
+2. VCS revision when building from a clean git repository
+3. Ldflags override: `-X github.com/matt-winfield/d2lang-views/version.version=v1.0.0`
+4. Falls back to "dev" during development
+
+The generated D2 files include comments indicating they were auto-generated, including the tool version. This helps users understand the file should not be manually edited.
+
+### 5. Main (main.go)
 
 Entry point and CLI handling:
 
@@ -144,6 +171,7 @@ Test files:
 -   `d2view/processor_test.go` - Tests view processing and implicit parent filtering
 -   `exporter_test.go` - Tests view content generation and replacement
 -   `main_test.go` - Integration tests
+-   `version/version_test.go` - Tests version header generation
 
 When tests fail, `go-cmp` output shows the exact differences between expected and actual D2 output, making it easy to identify issues.
 

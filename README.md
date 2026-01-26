@@ -32,6 +32,7 @@ d2lang-views --watch ./path/to/diagram.d2 output/diagram.svg
 ```
 
 The watcher:
+
 - Monitors the source D2 file for changes
 - Automatically detects and watches imported files (`@import` syntax)
 - Recompiles when any watched file changes
@@ -293,7 +294,7 @@ Edge styles, classes, and other properties from the base diagram are automatical
 - [ ] Support `# include class=<class-name>` to include entities of a specific class in the view. (tagging)
 - [ ] Support wildcard references `# include pattern=something.*` to include multiple entities matching a pattern.
 - [ ] Support auto-including parent containers via `# parents` comment following the entity reference.
-- [ ] Include comments around the generated view definitions for clarity. Include the version of the tool used to generate it.
+- [x] Include comments around the generated view definitions for clarity. Include the version of the tool used to generate it.
 - [x] Automatically compile the generated view diagrams using the D2 CLI.
 - [x] Watch mode to monitor changes in the source diagram and regenerate views automatically.
 
