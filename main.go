@@ -5,13 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/alexflint/go-arg"
 	"github.com/fatih/color"
 	"github.com/matt-winfield/d2lang-views/compile"
 	"github.com/matt-winfield/d2lang-views/render"
+	"github.com/matt-winfield/d2lang-views/watch"
 	"oss.terrastruct.com/d2/d2graph"
 )
 
@@ -21,6 +25,7 @@ var args struct {
 	Layout      string `arg:"-l,--layout" help:"layout engine to use (e.g., dagre, elk)"`
 	Debug       bool   `arg:"-d,--debug" help:"enable debug output - output intermediate AST files"`
 	ViewsOnly   bool   `arg:"--views-only" help:"only output SVGs for view layers (marked with #view)"`
+	Watch       bool   `arg:"-w,--watch" help:"watch source file and imports for changes, automatically recompile"`
 }
 
 func main() {
@@ -36,18 +41,39 @@ func main() {
 	err := checkOutputConflict(args.Source, args.Destination)
 	checkErr(err, "Output path conflict detected")
 
+	// Run initial compilation
+	if err := runCompilation(); err != nil {
+		color.Red("ERR: %v", err)
+		os.Exit(1)
+	}
+
+	// If watch mode is enabled, start watching for changes
+	if args.Watch {
+		runWatchMode()
+	}
+}
+
+// runCompilation performs a single compilation of the D2 source file.
+// Returns an error if compilation fails, allowing watch mode to continue.
+func runCompilation() error {
 	content, err := os.ReadFile(args.Source)
-	checkErr(err, "Unable to read source file")
+	if err != nil {
+		return fmt.Errorf("unable to read source file: %w", err)
+	}
 
 	reader := bytes.NewReader(content)
 	graph, _, err := compile.CompileD2(args.Source, reader)
-	checkErr(err, "Unable to compile D2 content")
+	if err != nil {
+		return fmt.Errorf("unable to compile D2 content: %w", err)
+	}
 
 	rootObjectIds := compile.ExtractRootObjectIds(graph)
 
 	sourceReader := bytes.NewReader(content)
 	viewContent, err := replaceViewLayers(sourceReader, graph, rootObjectIds)
-	checkErr(err, "Unable to replace view content")
+	if err != nil {
+		return fmt.Errorf("unable to replace view content: %w", err)
+	}
 
 	// Output D2 file to same directory as source (to preserve relative imports)
 	viewOutputPath := getD2OutputPath(args.Source)
@@ -55,21 +81,26 @@ func main() {
 	// Ensure output directory exists
 	outputDir := getDirectory(viewOutputPath)
 	if outputDir != "" {
-		err = ensureDirExists(outputDir)
-		checkErr(err, "Unable to create output directory")
+		if err := ensureDirExists(outputDir); err != nil {
+			return fmt.Errorf("unable to create output directory: %w", err)
+		}
 	}
 
 	if args.Debug {
 		debugOutputPath := viewOutputPath + ".debug.json"
 		jsonContent, err := json.MarshalIndent(graph, "", "    ")
-		checkErr(err, "failed to marshall graph as JSON")
-		err = os.WriteFile(debugOutputPath, jsonContent, 0644)
-		checkErr(err, "Unable to write debug output file")
+		if err != nil {
+			return fmt.Errorf("failed to marshall graph as JSON: %w", err)
+		}
+		if err := os.WriteFile(debugOutputPath, jsonContent, 0644); err != nil {
+			return fmt.Errorf("unable to write debug output file: %w", err)
+		}
 		color.Green("Wrote debug D2 output to %s", debugOutputPath)
 	}
 
-	err = os.WriteFile(viewOutputPath, []byte(viewContent), 0644)
-	checkErr(err, "Unable to write output file with views")
+	if err := os.WriteFile(viewOutputPath, []byte(viewContent), 0644); err != nil {
+		return fmt.Errorf("unable to write output file with views: %w", err)
+	}
 
 	color.Green("Successfully wrote D2 output to %s", viewOutputPath)
 
@@ -86,13 +117,15 @@ func main() {
 	// Ensure SVG output directory exists
 	svgParentDir := getDirectory(svgOutputPath)
 	if svgParentDir != "" {
-		err = ensureDirExists(svgParentDir)
-		checkErr(err, "Unable to create SVG output directory")
+		if err := ensureDirExists(svgParentDir); err != nil {
+			return fmt.Errorf("unable to create SVG output directory: %w", err)
+		}
 	}
 
 	// Create subfolder for layer SVGs (same name as output file without extension)
-	err = ensureDirExists(svgOutputDir)
-	checkErr(err, "Unable to create SVG layers directory")
+	if err := ensureDirExists(svgOutputDir); err != nil {
+		return fmt.Errorf("unable to create SVG layers directory: %w", err)
+	}
 
 	// Compile to SVG using d2 CLI
 	renderOpts := render.RenderOptions{
@@ -104,7 +137,9 @@ func main() {
 	}
 
 	result, err := render.Render(renderOpts)
-	checkErr(err, "Unable to compile to SVG")
+	if err != nil {
+		return fmt.Errorf("unable to compile to SVG: %w", err)
+	}
 
 	if result.ViewsOnly {
 		for _, viewName := range result.RenderedLayers {
@@ -117,6 +152,53 @@ func main() {
 		}
 		fmt.Printf("Compiled %d layers to SVG\n", len(layerNames))
 	}
+
+	return nil
+}
+
+// runWatchMode starts watching the source file and its imports for changes.
+func runWatchMode() {
+	color.Cyan("\nWatching for changes... (Ctrl+C to stop)")
+
+	watcher, err := watch.NewWatcher(watch.WatcherOptions{
+		SourcePath:    args.Source,
+		DebounceDelay: 200 * time.Millisecond,
+		OnChange: func() error {
+			fmt.Println() // Add newline before recompilation output
+			color.Cyan("Change detected, recompiling...")
+			if err := runCompilation(); err != nil {
+				color.Red("Compilation error: %v", err)
+				// Return nil to continue watching even after errors
+				return nil
+			}
+			color.Cyan("Watching for changes... (Ctrl+C to stop)")
+			return nil
+		},
+	})
+	if err != nil {
+		color.Red("ERR: Failed to create watcher: %v", err)
+		os.Exit(1)
+	}
+
+	if err := watcher.Start(); err != nil {
+		color.Red("ERR: Failed to start watcher: %v", err)
+		os.Exit(1)
+	}
+
+	// Print watched files
+	watchedFiles := watcher.GetWatchedFiles()
+	if len(watchedFiles) > 1 {
+		color.Yellow("Watching %d files (source + %d imports)", len(watchedFiles), len(watchedFiles)-1)
+	}
+
+	// Wait for interrupt signal
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	<-sigChan
+
+	fmt.Println() // Add newline after ^C
+	color.Yellow("Stopping watcher...")
+	watcher.Stop()
 }
 
 // ensureDirExists checks if a directory exists at the given path,

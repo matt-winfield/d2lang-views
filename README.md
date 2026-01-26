@@ -21,6 +21,24 @@ d2lang-views ./path/to/diagram.d2 output/diagram.svg
 - `--layout, -l` - Layout engine to use (e.g., dagre, elk)
 - `--debug, -d` - Enable debug output (intermediate AST files)
 - `--views-only` - Only output SVGs for view layers (marked with `#view`)
+- `--watch, -w` - Watch source file and imports for changes, automatically recompile
+
+### Watch Mode
+
+Use `--watch` or `-w` to automatically recompile when the source file or any of its imports change:
+
+```bash
+d2lang-views --watch ./path/to/diagram.d2 output/diagram.svg
+```
+
+The watcher:
+- Monitors the source D2 file for changes
+- Automatically detects and watches imported files (`@import` syntax)
+- Recompiles when any watched file changes
+- Updates watched files after each compilation (picks up new imports)
+- Continues running even if compilation fails (shows error and waits for next change)
+
+Press `Ctrl+C` to stop watching.
 
 ### Views-Only Mode
 
@@ -277,7 +295,7 @@ Edge styles, classes, and other properties from the base diagram are automatical
 - [ ] Support auto-including parent containers via `# parents` comment following the entity reference.
 - [ ] Include comments around the generated view definitions for clarity. Include the version of the tool used to generate it.
 - [x] Automatically compile the generated view diagrams using the D2 CLI.
-- [ ] Watch mode to monitor changes in the source diagram and regenerate views automatically.
+- [x] Watch mode to monitor changes in the source diagram and regenerate views automatically.
 
 ## Development
 
