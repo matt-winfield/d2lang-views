@@ -545,16 +545,16 @@ steps: {
 	}
 }
 
-func TestGetRelabelEdges(t *testing.T) {
+func TestGetOverrideEdges(t *testing.T) {
 	tests := []struct {
 		name           string
 		content        string
 		viewName       string
 		expectedCount  int
-		expectedLabels []string // Expected labels in the relabel edges
+		expectedLabels []string // Expected labels in the override edges
 	}{
 		{
-			name: "single_relabel_edge",
+			name: "single_override_edge",
 			content: `a: "A"
 b: "B"
 a -> b: "original"
@@ -563,7 +563,7 @@ layers: {
     view1: { #view
         a
         b
-        a -> b: "new label" #relabel
+        a -> b: "new label" #override
     }
 }
 `,
@@ -572,7 +572,7 @@ layers: {
 			expectedLabels: []string{"new label"},
 		},
 		{
-			name: "multiple_relabel_edges",
+			name: "multiple_override_edges",
 			content: `a: "A"
 b: "B"
 c: "C"
@@ -585,17 +585,17 @@ layers: {
         a
         b
         c
-        a -> b: "relabeled first" #relabel
-        b -> c: "relabeled second" #relabel
+        a -> b: "override first" #override
+        b -> c: "override second" #override
     }
 }
 `,
 			viewName:       "view1",
 			expectedCount:  2,
-			expectedLabels: []string{"relabeled first", "relabeled second"},
+			expectedLabels: []string{"override first", "override second"},
 		},
 		{
-			name: "no_relabel_edges",
+			name: "no_override_edges",
 			content: `a: "A"
 b: "B"
 a -> b: "original"
@@ -613,7 +613,7 @@ layers: {
 			expectedLabels: []string{},
 		},
 		{
-			name: "mixed_relabel_and_normal_edges",
+			name: "mixed_override_and_normal_edges",
 			content: `a: "A"
 b: "B"
 c: "C"
@@ -625,17 +625,17 @@ layers: {
         a
         b
         c
-        a -> b: "relabeled" #relabel
+        a -> b: "overridden" #override
         b -> c: "new edge"
     }
 }
 `,
 			viewName:       "view1",
 			expectedCount:  1,
-			expectedLabels: []string{"relabeled"},
+			expectedLabels: []string{"overridden"},
 		},
 		{
-			name: "relabel_in_different_view",
+			name: "override_in_different_view",
 			content: `a: "A"
 b: "B"
 a -> b: "original"
@@ -644,12 +644,12 @@ layers: {
     view1: { #view
         a
         b
-        a -> b: "view1 label" #relabel
+        a -> b: "view1 label" #override
     }
     view2: { #view
         a
         b
-        a -> b: "view2 label" #relabel
+        a -> b: "view2 label" #override
     }
 }
 `,
@@ -658,7 +658,7 @@ layers: {
 			expectedLabels: []string{"view2 label"},
 		},
 		{
-			name: "relabel_nested_entities",
+			name: "override_nested_entities",
 			content: `parent: {
     child1: "C1"
     child2: "C2"
@@ -669,13 +669,37 @@ layers: {
     view1: { #view
         parent.child1
         parent.child2
-        parent.child1 -> parent.child2: "nested relabel" #relabel
+        parent.child1 -> parent.child2: "nested override" #override
     }
 }
 `,
 			viewName:       "view1",
 			expectedCount:  1,
-			expectedLabels: []string{"nested relabel"},
+			expectedLabels: []string{"nested override"},
+		},
+		{
+			name: "override_with_label_and_style_block",
+			content: `a: "A"
+b: "B"
+a -> b: "original"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b: "new label" {
+            style: {
+                stroke: "#00ff00"
+            }
+        } #override
+    }
+}
+`,
+			viewName:       "view1",
+			expectedCount:  1,
+			// Note: Label is extracted from ViewEdge in processor, not from parser
+			// Parser only detects override edges, labels with blocks are handled separately
+			expectedLabels: []string{},
 		},
 	}
 
@@ -687,15 +711,15 @@ layers: {
 				t.Fatalf("failed to parse: %v", err)
 			}
 
-			relabelEdges := GetRelabelEdges(graph, tt.viewName)
+			overrideEdges := GetOverrideEdges(graph, tt.viewName)
 
-			if len(relabelEdges) != tt.expectedCount {
-				t.Fatalf("expected %d relabel edges, got %d", tt.expectedCount, len(relabelEdges))
+			if len(overrideEdges) != tt.expectedCount {
+				t.Fatalf("expected %d override edges, got %d", tt.expectedCount, len(overrideEdges))
 			}
 
-			// Collect labels from relabel edges
-			actualLabels := make([]string, 0, len(relabelEdges))
-			for key := range relabelEdges {
+			// Collect labels from override edges
+			actualLabels := make([]string, 0, len(overrideEdges))
+			for key := range overrideEdges {
 				actualLabels = append(actualLabels, key.Label)
 			}
 
@@ -708,7 +732,7 @@ layers: {
 					}
 				}
 				if !found {
-					t.Errorf("expected label %q not found in relabel edges", expectedLabel)
+					t.Errorf("expected label %q not found in override edges", expectedLabel)
 				}
 			}
 		})

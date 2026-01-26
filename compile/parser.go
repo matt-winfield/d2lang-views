@@ -129,9 +129,9 @@ func extractObjectIds(node *d2graph.Object, prefix string, entities map[string]s
 	}
 }
 
-// RelabelEdgeKey uniquely identifies an edge for relabeling purposes.
+// OverrideEdgeKey uniquely identifies an edge for override purposes.
 // Uses lowercase IDs for case-insensitive matching.
-type RelabelEdgeKey struct {
+type OverrideEdgeKey struct {
 	SrcID    string
 	DstID    string
 	SrcArrow bool
@@ -139,10 +139,10 @@ type RelabelEdgeKey struct {
 	Label    string // The new label to apply
 }
 
-// GetRelabelEdges returns a set of edges that have the #relabel comment in the given view layer.
+// GetOverrideEdges returns a set of edges that have the #override comment in the given view layer.
 // The returned map uses edge keys for matching against base layer edges.
-func GetRelabelEdges(graph *d2graph.Graph, viewName string) map[RelabelEdgeKey]struct{} {
-	result := make(map[RelabelEdgeKey]struct{})
+func GetOverrideEdges(graph *d2graph.Graph, viewName string) map[OverrideEdgeKey]struct{} {
+	result := make(map[OverrideEdgeKey]struct{})
 
 	viewNodes := getViewASTNodes(graph, viewName)
 	if viewNodes == nil {
@@ -150,7 +150,7 @@ func GetRelabelEdges(graph *d2graph.Graph, viewName string) map[RelabelEdgeKey]s
 	}
 
 	for i, node := range viewNodes {
-		if key, ok := extractRelabelEdge(node, viewNodes, i); ok {
+		if key, ok := extractOverrideEdge(node, viewNodes, i); ok {
 			result[key] = struct{}{}
 		}
 	}
@@ -178,19 +178,19 @@ func getViewASTNodes(graph *d2graph.Graph, viewName string) []d2ast.MapNodeBox {
 	return nil
 }
 
-// extractRelabelEdge checks if the node at index i is an edge with an inline #relabel comment.
-// Returns the RelabelEdgeKey and true if found, otherwise returns empty key and false.
-func extractRelabelEdge(node d2ast.MapNodeBox, nodes []d2ast.MapNodeBox, i int) (RelabelEdgeKey, bool) {
+// extractOverrideEdge checks if the node at index i is an edge with an inline #override comment.
+// Returns the OverrideEdgeKey and true if found, otherwise returns empty key and false.
+func extractOverrideEdge(node d2ast.MapNodeBox, nodes []d2ast.MapNodeBox, i int) (OverrideEdgeKey, bool) {
 	if node.MapKey == nil || len(node.MapKey.Edges) == 0 {
-		return RelabelEdgeKey{}, false
+		return OverrideEdgeKey{}, false
 	}
 
-	if !hasInlineRelabelComment(node, nodes, i) {
-		return RelabelEdgeKey{}, false
+	if !hasInlineOverrideComment(node, nodes, i) {
+		return OverrideEdgeKey{}, false
 	}
 
 	edge := node.MapKey.Edges[0]
-	return RelabelEdgeKey{
+	return OverrideEdgeKey{
 		SrcID:    strings.ToLower(getKeyPathString(edge.Src)),
 		DstID:    strings.ToLower(getKeyPathString(edge.Dst)),
 		SrcArrow: edge.SrcArrow != "",
@@ -199,8 +199,10 @@ func extractRelabelEdge(node d2ast.MapNodeBox, nodes []d2ast.MapNodeBox, i int) 
 	}, true
 }
 
-// hasInlineRelabelComment checks if the next node is a #relabel comment on the same line.
-func hasInlineRelabelComment(node d2ast.MapNodeBox, nodes []d2ast.MapNodeBox, i int) bool {
+// hasInlineOverrideComment checks if the next node is a #override comment on the same line as the edge.
+// For single-line edges, the comment should be on the same line as the edge.
+// For multi-line blocks, the comment should be on the line where the block ends.
+func hasInlineOverrideComment(node d2ast.MapNodeBox, nodes []d2ast.MapNodeBox, i int) bool {
 	if i+1 >= len(nodes) {
 		return false
 	}
@@ -210,9 +212,16 @@ func hasInlineRelabelComment(node d2ast.MapNodeBox, nodes []d2ast.MapNodeBox, i 
 		return false
 	}
 
-	edgeLine := node.MapKey.Range.Start.Line
-	return nextNode.Comment.Range.Start.Line == edgeLine &&
-		strings.TrimSpace(nextNode.Comment.Value) == "relabel"
+	if strings.TrimSpace(nextNode.Comment.Value) != "override" {
+		return false
+	}
+
+	commentLine := nextNode.Comment.Range.Start.Line
+	edgeStartLine := node.MapKey.Range.Start.Line
+	edgeEndLine := node.MapKey.Range.End.Line
+
+	// Comment can be on the start line (single-line edge) or end line (multi-line block)
+	return commentLine == edgeStartLine || commentLine == edgeEndLine
 }
 
 // getKeyPathString returns the dot-separated string representation of a KeyPath.

@@ -135,14 +135,14 @@ func GetLabel(viewObject *d2graph.Object, baseObject *d2graph.Object) string {
 // processViewEdges extracts the edges from the base layer that are relevant to the view layer.
 // Only edges where both the source and destination objects are explicitly present in the view layer are included.
 // Edge source/destination IDs are adjusted to reflect the filtered object hierarchy.
-// Edges with #relabel in the view layer override the labels of matching base edges.
+// Edges with #override in the view layer override the labels of matching base edges.
 func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds map[string]struct{}) []*Edge {
 	// Build a mapping from original absolute IDs to filtered absolute IDs
 	idMapping := buildFilteredIdMapping(layer, explicitIds)
 
-	// Get the relabel edges for this view - we'll track which ones get applied
-	relabelEdges := compile.GetRelabelEdges(graph, layer.Name)
-	appliedRelabels := make(map[compile.RelabelEdgeKey]struct{})
+	// Get the override edges for this view - we'll track which ones get applied
+	overrideEdges := compile.GetOverrideEdges(graph, layer.Name)
+	appliedOverrides := make(map[compile.OverrideEdgeKey]struct{})
 
 	edges := make([]*Edge, 0, len(layer.Edges))
 
@@ -163,14 +163,22 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds ma
 				D2Edge:   edge,
 			}
 
-			// Check if there's a relabel for this edge
-			relabelKey, labelOverride := findRelabelForEdge(srcId, dstId, edge.SrcArrow, edge.DstArrow, relabelEdges)
-			if labelOverride != "" {
-				newEdge.LabelOverride = labelOverride
-				// Mark this relabel as applied
-				appliedRelabels[relabelKey] = struct{}{}
-				// Remove the relabel entry so it's only applied once (to the first matching edge)
-				delete(relabelEdges, relabelKey)
+			// Check if there's an override for this edge
+			overrideKey, hasOverride := getOverrideKey(srcId, dstId, edge.SrcArrow, edge.DstArrow, overrideEdges)
+			if hasOverride {
+				// Find and store the view edge for property merging
+				viewEdge := findViewEdge(layer, srcId, dstId, edge.SrcArrow, edge.DstArrow)
+				newEdge.ViewEdge = viewEdge
+
+				// Apply label override from view edge if it has a different label
+				if viewEdge != nil && viewEdge.Label.Value != "" {
+					newEdge.LabelOverride = viewEdge.Label.Value
+				}
+
+				// Mark this override as applied
+				appliedOverrides[overrideKey] = struct{}{}
+				// Remove the override entry so it's only applied once (to the first matching edge)
+				delete(overrideEdges, overrideKey)
 			}
 
 			edges = append(edges, newEdge)
@@ -178,7 +186,7 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds ma
 	}
 
 	// Process edges defined in the view layer
-	allRelabelEdges := compile.GetRelabelEdges(graph, layer.Name)
+	allOverrideEdges := compile.GetOverrideEdges(graph, layer.Name)
 	for _, edge := range layer.Edges {
 		srcId := compile.GetAbsoluteId(edge.Src)
 		dstId := compile.GetAbsoluteId(edge.Dst)
@@ -187,21 +195,21 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds ma
 		filteredDstId, dstExists := idMapping[strings.ToLower(dstId)]
 
 		if srcExists && dstExists {
-			// Check if this is a relabel edge
-			relabelKey, isRelabel := getRelabelKey(srcId, dstId, edge.SrcArrow, edge.DstArrow, allRelabelEdges)
-			if isRelabel {
-				// Only skip if this relabel was applied to a base edge
-				if _, wasApplied := appliedRelabels[relabelKey]; wasApplied {
+			// Check if this is an override edge
+			overrideKey, isOverride := getOverrideKey(srcId, dstId, edge.SrcArrow, edge.DstArrow, allOverrideEdges)
+			if isOverride {
+				// Only skip if this override was applied to a base edge
+				if _, wasApplied := appliedOverrides[overrideKey]; wasApplied {
 					continue
 				}
-				// Otherwise, add it as a new edge with the relabel as its label
+				// Otherwise, add it as a new edge with the override as its label
 				edges = append(edges, &Edge{
 					Src:           filteredSrcId,
 					Dst:           filteredDstId,
 					SrcArrow:      edge.SrcArrow,
 					DstArrow:      edge.DstArrow,
 					D2Edge:        edge,
-					LabelOverride: relabelKey.Label,
+					LabelOverride: overrideKey.Label,
 				})
 				continue
 			}
@@ -219,23 +227,9 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds ma
 	return edges
 }
 
-// findRelabelForEdge checks if there's a matching relabel entry for the given edge.
-// Returns the key and override label if found, empty key and string otherwise.
-func findRelabelForEdge(srcId, dstId string, srcArrow, dstArrow bool, relabelEdges map[compile.RelabelEdgeKey]struct{}) (compile.RelabelEdgeKey, string) {
-	for key := range relabelEdges {
-		if strings.ToLower(srcId) == key.SrcID &&
-			strings.ToLower(dstId) == key.DstID &&
-			srcArrow == key.SrcArrow &&
-			dstArrow == key.DstArrow {
-			return key, key.Label
-		}
-	}
-	return compile.RelabelEdgeKey{}, ""
-}
-
-// getRelabelKey checks if the given edge parameters match a relabel edge and returns the key.
-func getRelabelKey(srcId, dstId string, srcArrow, dstArrow bool, relabelEdges map[compile.RelabelEdgeKey]struct{}) (compile.RelabelEdgeKey, bool) {
-	for key := range relabelEdges {
+// getOverrideKey checks if the given edge parameters match an override edge and returns the key.
+func getOverrideKey(srcId, dstId string, srcArrow, dstArrow bool, overrideEdges map[compile.OverrideEdgeKey]struct{}) (compile.OverrideEdgeKey, bool) {
+	for key := range overrideEdges {
 		if strings.ToLower(srcId) == key.SrcID &&
 			strings.ToLower(dstId) == key.DstID &&
 			srcArrow == key.SrcArrow &&
@@ -243,7 +237,27 @@ func getRelabelKey(srcId, dstId string, srcArrow, dstArrow bool, relabelEdges ma
 			return key, true
 		}
 	}
-	return compile.RelabelEdgeKey{}, false
+	return compile.OverrideEdgeKey{}, false
+}
+
+// findViewEdge finds the view layer edge that matches the given edge parameters.
+// Used to retrieve the view edge for property merging when an override is applied.
+func findViewEdge(layer *d2graph.Graph, srcId, dstId string, srcArrow, dstArrow bool) *d2graph.Edge {
+	srcIdLower := strings.ToLower(srcId)
+	dstIdLower := strings.ToLower(dstId)
+
+	for _, edge := range layer.Edges {
+		edgeSrcId := strings.ToLower(compile.GetAbsoluteId(edge.Src))
+		edgeDstId := strings.ToLower(compile.GetAbsoluteId(edge.Dst))
+
+		if edgeSrcId == srcIdLower &&
+			edgeDstId == dstIdLower &&
+			edge.SrcArrow == srcArrow &&
+			edge.DstArrow == dstArrow {
+			return edge
+		}
+	}
+	return nil
 }
 
 // buildFilteredIdMapping creates a mapping from original absolute IDs to filtered absolute IDs.

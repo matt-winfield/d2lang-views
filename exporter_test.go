@@ -1535,9 +1535,9 @@ layers: {
 }
 `,
 		},
-		// Edge label override tests using #relabel
+		// Edge override tests using #override
 		{
-			name: "EdgeRelabel_OverridesSingleEdgeLabel",
+			name: "EdgeOverride_OverridesSingleEdgeLabel",
 			content: `a: "Entity A"
 b: "Entity B"
 
@@ -1547,7 +1547,7 @@ layers: {
     view1: { #view
         a
         b
-        a -> b: "view-specific label" #relabel
+        a -> b: "view-specific label" #override
     }
 }
 `,
@@ -1566,7 +1566,7 @@ layers: {
 `,
 		},
 		{
-			name: "EdgeRelabel_OverridesFirstMatchingEdge",
+			name: "EdgeOverride_OverridesFirstMatchingEdge",
 			content: `a: "Entity A"
 b: "Entity B"
 
@@ -1577,7 +1577,7 @@ layers: {
     view1: { #view
         a
         b
-        a -> b: "overridden first" #relabel
+        a -> b: "overridden first" #override
     }
 }
 `,
@@ -1598,7 +1598,7 @@ layers: {
 `,
 		},
 		{
-			name: "EdgeRelabel_DoesNotAddDuplicateEdge",
+			name: "EdgeOverride_DoesNotAddDuplicateEdge",
 			content: `a: "Entity A"
 b: "Entity B"
 
@@ -1608,7 +1608,7 @@ layers: {
     view1: { #view
         a
         b
-        a -> b: "new label" #relabel
+        a -> b: "new label" #override
     }
 }
 `,
@@ -1627,7 +1627,7 @@ layers: {
 `,
 		},
 		{
-			name: "EdgeRelabel_AddsNewEdgeIfNoMatch",
+			name: "EdgeOverride_AddsNewEdgeIfNoMatch",
 			content: `a: "Entity A"
 b: "Entity B"
 c: "Entity C"
@@ -1639,7 +1639,7 @@ layers: {
         a
         b
         c
-        b -> c: "new edge" #relabel
+        b -> c: "new edge" #override
     }
 }
 `,
@@ -1661,7 +1661,7 @@ layers: {
 `,
 		},
 		{
-			name: "EdgeRelabel_WithNestedEntities",
+			name: "EdgeOverride_WithNestedEntities",
 			content: `parent: {
     child1: "Child 1"
     child2: "Child 2"
@@ -1673,7 +1673,7 @@ layers: {
     view1: { #view
         parent.child1
         parent.child2
-        parent.child1 -> parent.child2: "view connection" #relabel
+        parent.child1 -> parent.child2: "view connection" #override
     }
 }
 `,
@@ -1694,7 +1694,7 @@ layers: {
 `,
 		},
 		{
-			name: "EdgeRelabel_MixedRelabelAndNewEdges",
+			name: "EdgeOverride_MixedOverrideAndNewEdges",
 			content: `a: "Entity A"
 b: "Entity B"
 c: "Entity C"
@@ -1706,7 +1706,7 @@ layers: {
         a
         b
         c
-        a -> b: "new a-b label" #relabel
+        a -> b: "new a-b label" #override
         b -> c: "new b-c"
     }
 }
@@ -1729,7 +1729,7 @@ layers: {
 `,
 		},
 		{
-			name: "EdgeRelabel_PreservesEdgeDirection",
+			name: "EdgeOverride_PreservesEdgeDirection",
 			content: `a: "Entity A"
 b: "Entity B"
 
@@ -1739,7 +1739,7 @@ layers: {
     view1: { #view
         a
         b
-        a <- b: "new backward" #relabel
+        a <- b: "new backward" #override
     }
 }
 `,
@@ -1758,7 +1758,7 @@ layers: {
 `,
 		},
 		{
-			name: "EdgeRelabel_BiDirectionalEdge",
+			name: "EdgeOverride_BiDirectionalEdge",
 			content: `a: "Entity A"
 b: "Entity B"
 
@@ -1768,7 +1768,7 @@ layers: {
     view1: { #view
         a
         b
-        a <-> b: "new bidirectional" #relabel
+        a <-> b: "new bidirectional" #override
     }
 }
 `,
@@ -1787,7 +1787,7 @@ layers: {
 `,
 		},
 		{
-			name: "EdgeRelabel_CaseInsensitiveMatching",
+			name: "EdgeOverride_CaseInsensitiveMatching",
 			content: `NodeA: "Entity A"
 NodeB: "Entity B"
 
@@ -1797,7 +1797,7 @@ layers: {
     view1: { #view
         nodea
         nodeb
-        nodea -> nodeb: "relabeled" #relabel
+        nodea -> nodeb: "overridden" #override
     }
 }
 `,
@@ -1810,7 +1810,338 @@ layers: {
     view1: {
         nodea: "Entity A"
         nodeb: "Entity B"
-        nodea -> nodeb: "relabeled"
+        nodea -> nodeb: "overridden"
+    }
+}
+`,
+		},
+		// Edge style preservation tests
+		{
+			name: "EdgeStyles_PreservedFromBase",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "styled edge" {
+    style: {
+        stroke: "#ff0000"
+        stroke-width: 3
+    }
+}
+
+layers: {
+    view1: { #view
+        a
+        b
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "styled edge" {
+    style: {
+        stroke: "#ff0000"
+        stroke-width: 3
+    }
+}
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        a -> b: "styled edge" {
+            style: {
+                stroke: "#ff0000"
+                stroke-width: 3
+            }
+        }
+    }
+}
+`,
+		},
+		{
+			name: "EdgeStyles_MultipleStyleProperties",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "edge" {
+    style: {
+        stroke: "#00ff00"
+        stroke-dash: 5
+        opacity: 0.8
+    }
+}
+
+layers: {
+    view1: { #view
+        a
+        b
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "edge" {
+    style: {
+        stroke: "#00ff00"
+        stroke-dash: 5
+        opacity: 0.8
+    }
+}
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        a -> b: "edge" {
+            style: {
+                opacity: 0.8
+                stroke: "#00ff00"
+                stroke-dash: 5
+            }
+        }
+    }
+}
+`,
+		},
+		{
+			name: "EdgeClasses_PreservedFromBase",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "classed edge" {
+    class: highlight
+}
+
+layers: {
+    view1: { #view
+        a
+        b
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "classed edge" {
+    class: highlight
+}
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        a -> b: "classed edge" {
+            class: highlight
+        }
+    }
+}
+`,
+		},
+		{
+			name: "EdgeTooltipAndLink_PreservedFromBase",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "linked edge" {
+    tooltip: "Click for details"
+    link: https://example.com
+}
+
+layers: {
+    view1: { #view
+        a
+        b
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "linked edge" {
+    tooltip: "Click for details"
+    link: https://example.com
+}
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        a -> b: "linked edge" {
+            tooltip: "Click for details"
+            link: https://example.com
+        }
+    }
+}
+`,
+		},
+		{
+			name: "EdgeStyles_NoAttributesWhenNone",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a -> b
+
+layers: {
+    view1: { #view
+        a
+        b
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a -> b
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        a -> b
+    }
+}
+`,
+		},
+		// Edge style override tests using #override
+		{
+			name: "EdgeOverride_OverridesStyle",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "edge" {
+    style: {
+        stroke: "#ff0000"
+    }
+}
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b {
+            style: {
+                stroke: "#00ff00"
+            }
+        } #override
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "edge" {
+    style: {
+        stroke: "#ff0000"
+    }
+}
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        a -> b: "edge" {
+            style: {
+                stroke: "#00ff00"
+            }
+        }
+    }
+}
+`,
+		},
+		{
+			name: "EdgeOverride_PartialStyleOverride",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "edge" {
+    style: {
+        stroke: "#ff0000"
+        stroke-width: 3
+        opacity: 0.5
+    }
+}
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b {
+            style: {
+                stroke: "#00ff00"
+            }
+        } #override
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "edge" {
+    style: {
+        stroke: "#ff0000"
+        stroke-width: 3
+        opacity: 0.5
+    }
+}
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        a -> b: "edge" {
+            style: {
+                opacity: 0.5
+                stroke: "#00ff00"
+                stroke-width: 3
+            }
+        }
+    }
+}
+`,
+		},
+		{
+			name: "EdgeOverride_LabelAndStyleTogether",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "original" {
+    style: {
+        stroke: "#ff0000"
+    }
+}
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b: "new label" {
+            style: {
+                stroke: "#00ff00"
+            }
+        } #override
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "original" {
+    style: {
+        stroke: "#ff0000"
+    }
+}
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        a -> b: "new label" {
+            style: {
+                stroke: "#00ff00"
+            }
+        }
     }
 }
 `,

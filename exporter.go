@@ -206,8 +206,74 @@ func getEdgeD2Representation(edge *d2view.Edge) string {
 		builder.WriteString(fmt.Sprintf(": \"%s\"", edge.D2Edge.Label.Value))
 	}
 
+	// Add edge attributes if present
+	attrs := getEdgeAttributesRepresentation(edge)
+	if attrs != "" {
+		builder.WriteString(" {\n")
+		builder.WriteString(attrs)
+		builder.WriteString("    }")
+	}
+
 	builder.WriteString("\n")
 	return builder.String()
+}
+
+// getEdgeAttributesRepresentation returns the D2 representation of the edge's attributes.
+// It merges attributes from both the base edge (D2Edge) and view edge (ViewEdge),
+// with view edge attributes taking precedence when explicitly set.
+// Returns an empty string if the edge has no attributes to output.
+func getEdgeAttributesRepresentation(edge *d2view.Edge) string {
+	if edge.D2Edge == nil {
+		return ""
+	}
+
+	var builder strings.Builder
+	base := edge.D2Edge
+	view := edge.ViewEdge
+
+	// Tooltip - view takes precedence
+	tooltip := getMergedScalar(getEdgeTooltip(base), getEdgeTooltip(view))
+	if tooltip != "" {
+		builder.WriteString(fmt.Sprintf("        tooltip: \"%s\"\n", tooltip))
+	}
+
+	// Link - view takes precedence
+	link := getMergedScalar(getEdgeLink(base), getEdgeLink(view))
+	if link != "" {
+		builder.WriteString(fmt.Sprintf("        link: %s\n", link))
+	}
+
+	// Classes - merge both sets
+	classes := getMergedClasses((*ClassesEdge)(base), (*ClassesEdge)(view))
+	for _, class := range classes {
+		builder.WriteString(fmt.Sprintf("        class: %s\n", class))
+	}
+
+	// Style - merge base and view styles
+	styleContent := getMergedStyleRepresentation((*withStyleEdge)(base), (*withStyleEdge)(view))
+	if styleContent != "" {
+		builder.WriteString("        style: {\n")
+		builder.WriteString(styleContent)
+		builder.WriteString("        }\n")
+	}
+
+	return builder.String()
+}
+
+// getEdgeTooltip safely extracts the tooltip value from an edge.
+func getEdgeTooltip(edge *d2graph.Edge) string {
+	if edge != nil && edge.Tooltip != nil && edge.Tooltip.Value != "" {
+		return edge.Tooltip.Value
+	}
+	return ""
+}
+
+// getEdgeLink safely extracts the link value from an edge.
+func getEdgeLink(edge *d2graph.Edge) string {
+	if edge != nil && edge.Link != nil && edge.Link.Value != "" {
+		return edge.Link.Value
+	}
+	return ""
 }
 
 // applyIndentation prepends the given indentation to each line of the content.
@@ -303,13 +369,13 @@ func getObjectAttributesRepresentation(object *d2view.Object) string {
 	}
 
 	// Classes - merge both sets
-	classes := getMergedClasses(base, view)
+	classes := getMergedClasses((*ClassesObj)(base), (*ClassesObj)(view))
 	for _, class := range classes {
 		builder.WriteString(fmt.Sprintf("        class: %s\n", class))
 	}
 
 	// Style attributes - merge base and view styles
-	styleContent := getMergedStyleRepresentation(base, view)
+	styleContent := getMergedStyleRepresentation((*withStyleObj)(base), (*withStyleObj)(view))
 	if styleContent != "" {
 		builder.WriteString("        style: {\n")
 		builder.WriteString(styleContent)
@@ -410,13 +476,35 @@ func getMergedNear(base, view *d2graph.Object) string {
 	return ""
 }
 
-func getMergedClasses(base, view *d2graph.Object) []string {
+type withClasses interface {
+	classes() []string
+}
+
+type ClassesObj d2graph.Object
+
+func (obj *ClassesObj) classes() []string {
+	if obj == nil {
+		return []string{}
+	}
+	return obj.Classes
+}
+
+type ClassesEdge d2graph.Edge
+
+func (obj *ClassesEdge) classes() []string {
+	if obj == nil {
+		return []string{}
+	}
+	return obj.Classes
+}
+
+func getMergedClasses(base, view withClasses) []string {
 	classSet := make(map[string]struct{})
 	var classes []string
 
 	// Add base classes first
 	if base != nil {
-		for _, class := range base.Classes {
+		for _, class := range base.classes() {
 			if _, exists := classSet[class]; !exists {
 				classSet[class] = struct{}{}
 				classes = append(classes, class)
@@ -425,7 +513,7 @@ func getMergedClasses(base, view *d2graph.Object) []string {
 	}
 	// Add view classes (may override or add)
 	if view != nil {
-		for _, class := range view.Classes {
+		for _, class := range view.classes() {
 			if _, exists := classSet[class]; !exists {
 				classSet[class] = struct{}{}
 				classes = append(classes, class)
@@ -435,9 +523,31 @@ func getMergedClasses(base, view *d2graph.Object) []string {
 	return classes
 }
 
+type styleProvider interface {
+	style() d2graph.Style
+}
+
+type withStyleObj d2graph.Object
+
+func (obj *withStyleObj) style() d2graph.Style {
+	if obj == nil {
+		return d2graph.Style{}
+	}
+	return obj.Style
+}
+
+type withStyleEdge d2graph.Edge
+
+func (obj *withStyleEdge) style() d2graph.Style {
+	if obj == nil {
+		return d2graph.Style{}
+	}
+	return obj.Style
+}
+
 // getMergedStyleRepresentation returns the D2 representation of merged style attributes.
 // View style attributes take precedence over base style attributes.
-func getMergedStyleRepresentation(base, view *d2graph.Object) string {
+func getMergedStyleRepresentation(base, view styleProvider) string {
 	var builder strings.Builder
 
 	// Helper to get style scalar with view precedence
@@ -453,10 +563,10 @@ func getMergedStyleRepresentation(base, view *d2graph.Object) string {
 
 	var baseStyle, viewStyle d2graph.Style
 	if base != nil {
-		baseStyle = base.Style
+		baseStyle = base.style()
 	}
 	if view != nil {
-		viewStyle = view.Style
+		viewStyle = view.style()
 	}
 
 	if val := getStyleValue(baseStyle.Opacity, viewStyle.Opacity); val != "" {

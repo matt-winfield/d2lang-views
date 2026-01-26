@@ -175,23 +175,31 @@ layers: {
 }
 ```
 
-### Overriding Edge Labels
+### Overriding Edge Properties
 
-Use `#relabel` to override edge labels from the base diagram with view-specific labels:
+Use `#override` to override edge properties (labels, styles, classes, etc.) from the base diagram with view-specific values:
 
 ```d2
 client: "Web Client"
 server: "API Server"
 database: "PostgreSQL"
 
-client -> server: "HTTP requests"
+client -> server: "HTTP requests" {
+    style: {
+        stroke: "#ff0000"
+    }
+}
 server -> database: "SQL queries"
 
 layers: {
     client_view: { #view
         client
         server
-        client -> server: "REST API calls" #relabel
+        client -> server: "REST API calls" {
+            style: {
+                stroke: "#00ff00"
+            }
+        } #override
     }
 }
 ```
@@ -203,17 +211,24 @@ layers: {
     client_view: {
         client: "Web Client"
         server: "API Server"
-        client -> server: "REST API calls"
+        client -> server: "REST API calls" {
+            style: {
+                stroke: "#00ff00"
+            }
+        }
     }
 }
 ```
 
-The `#relabel` comment:
+The `#override` comment:
 
-- Overrides the label of the first matching edge from the base diagram
+- Overrides properties (label, style, classes, tooltip, link) of the first matching edge from the base diagram
 - If no matching edge exists, adds the edge as a new connection
+- View properties take precedence; base properties are used as defaults
 - Works with all edge types (`->`, `<-`, `<->`, `--`)
 - Matches edges case-insensitively
+
+Edge styles, classes, and other properties from the base diagram are automatically preserved in views, even without `#override`.
 
 ## Features
 
@@ -221,7 +236,8 @@ The `#relabel` comment:
 - Relationship copying between referenced entities
 - Support for nested entities (with implicit parent filtering)
 - Extract nested children without their parent containers
-- Override edge labels with `#relabel` for view-specific context
+- Preserve edge styles, classes, and properties from base diagram
+- Override edge properties with `#override` for view-specific context
 - Custom view layer names
 - Mix referenced and new entities in views
 
@@ -230,9 +246,9 @@ The `#relabel` comment:
 - [x] Allow including nested children without the parent (e.g. include `parent.child` without `parent`).
 - [x] Bring in other properties of entities (styles, classes, etc) from the base diagram.
 - [x] Maintain view keywords such as `direction`, `grid-*`, etc.
-- [x] Allow adding or overriding edge labels in views (using `#relabel` syntax).
+- [x] Allow adding or overriding edge properties in views (using `#override` syntax).
+- [x] Preserve edge styles/classes/properties from the base diagram.
 - [ ] Allow removing edges from views (using `#remove` syntax).
-- [ ] Preserve edge styles/classes/properties from the base diagram.
 - [ ] Maintain `title: |md` multi-line labels from the base diagram.
 - [x] Output the generated d2 diagram in the same directory as the source (to preserve relative import paths).
 - [ ] Support `# include class=<class-name>` to include entities of a specific class in the view.
