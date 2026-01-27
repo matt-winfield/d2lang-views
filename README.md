@@ -350,3 +350,9 @@ go run . ./path/to/diagram.d2 output/diagram.svg
 # Test
 go test ./...
 ```
+
+Install [golangci-lint](https://golangci-lint.run/usage/install/) for linting:
+
+```bash
+golangci-lint run
+```

@@ -164,12 +164,12 @@ func GetLabel(viewObject, baseObject *d2graph.Object) string {
 }
 
 func getObjectLabel(obj *d2graph.Object) string {
-	if obj.Attributes.Language != "" {
-		alias := d2compiler.FullToShortLanguageAliases[obj.Attributes.Language]
+	if obj.Language != "" {
+		alias := d2compiler.FullToShortLanguageAliases[obj.Language]
 		if alias != "" {
 			return "|" + alias + "\n" + obj.Label.Value + "\n|"
 		}
-		return "|" + obj.Attributes.Language + "\n" + obj.Label.Value + "\n|"
+		return "|" + obj.Language + "\n" + obj.Label.Value + "\n|"
 	}
 	return obj.Label.Value
 }

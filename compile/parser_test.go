@@ -124,7 +124,7 @@ layers: {}
 }
 
 func TestGetViewsNodes_NilMap(t *testing.T) {
-	var d2graph *d2graph.Graph = &d2graph.Graph{}
+	var d2graph = &d2graph.Graph{}
 
 	views := GetViewsNodes(d2graph)
 

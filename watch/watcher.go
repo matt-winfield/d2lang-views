@@ -95,7 +95,9 @@ func (w *Watcher) UpdateWatchedFiles() error {
 	// Remove watches for files no longer needed
 	for path := range w.watchedFiles {
 		if _, exists := newFiles[path]; !exists {
-			w.fsWatcher.Remove(path)
+			if err := w.fsWatcher.Remove(path); err != nil {
+				fmt.Printf("Warning: could not remove watch for %s: %v\n", path, err)
+			}
 		}
 	}
 

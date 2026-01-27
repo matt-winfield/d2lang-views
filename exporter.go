@@ -333,7 +333,7 @@ func getLabelRepresentation(label string) string {
 		return ""
 	}
 	// needs quotes if string does not start and end with |
-	needsQuotes := !(strings.HasPrefix(label, "|") && strings.HasSuffix(label, "|"))
+	needsQuotes := !strings.HasPrefix(label, "|") || !strings.HasSuffix(label, "|")
 
 	if needsQuotes {
 		return fmt.Sprintf(": \"%s\"", label)

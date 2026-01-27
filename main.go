@@ -206,7 +206,12 @@ func runWatchMode() {
 
 	fmt.Println() // Add newline after ^C
 	color.Yellow("Stopping watcher...")
-	watcher.Stop()
+	defer func() {
+		if err := watcher.Stop(); err != nil {
+			color.Red("ERR: Failed to stop watcher: %v", err)
+			os.Exit(1)
+		}
+	}()
 }
 
 // ensureDirExists checks if a directory exists at the given path,

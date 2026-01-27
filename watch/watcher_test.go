@@ -34,7 +34,11 @@ icons: @icons`
 	if err != nil {
 		t.Fatalf("failed to create watcher: %v", err)
 	}
-	defer watcher.Stop()
+	defer func() {
+		if err := watcher.Stop(); err != nil {
+			t.Fatalf("failed to stop watcher: %v", err)
+		}
+	}()
 
 	// Update watched files
 	if err := watcher.UpdateWatchedFiles(); err != nil {
@@ -80,7 +84,11 @@ icons: @missing`
 	if err != nil {
 		t.Fatalf("failed to create watcher: %v", err)
 	}
-	defer watcher.Stop()
+	defer func() {
+		if err := watcher.Stop(); err != nil {
+			t.Fatalf("failed to stop watcher: %v", err)
+		}
+	}()
 
 	// Update watched files - should not fail even with missing import
 	if err := watcher.UpdateWatchedFiles(); err != nil {
@@ -120,7 +128,12 @@ func TestWatcher_DetectsFileChanges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create watcher: %v", err)
 	}
-	defer watcher.Stop()
+
+	defer func() {
+		if err := watcher.Stop(); err != nil {
+			t.Fatalf("failed to stop watcher: %v", err)
+		}
+	}()
 
 	// Start the watcher
 	if err := watcher.Start(); err != nil {
@@ -187,7 +200,11 @@ icon1: "Icon 1"`
 	if err != nil {
 		t.Fatalf("failed to create watcher: %v", err)
 	}
-	defer watcher.Stop()
+	defer func() {
+		if err := watcher.Stop(); err != nil {
+			t.Fatalf("failed to stop watcher: %v", err)
+		}
+	}()
 
 	// Update watched files
 	if err := watcher.UpdateWatchedFiles(); err != nil {
@@ -237,7 +254,11 @@ func TestWatcher_UpdatesImportWatches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create watcher: %v", err)
 	}
-	defer watcher.Stop()
+	defer func() {
+		if err := watcher.Stop(); err != nil {
+			t.Fatalf("failed to stop watcher: %v", err)
+		}
+	}()
 
 	// Initial update
 	if err := watcher.UpdateWatchedFiles(); err != nil {
