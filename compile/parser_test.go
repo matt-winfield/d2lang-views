@@ -737,7 +737,7 @@ layers: {
 				t.Fatalf("failed to parse: %v", err)
 			}
 
-			overrideEdges := GetOverrideEdges(graph, tt.viewName)
+			overrideEdges := GetOverrideEdges(graph, tt.viewName, nil)
 
 			if len(overrideEdges) != tt.expectedCount {
 				t.Fatalf("expected %d override edges, got %d", tt.expectedCount, len(overrideEdges))

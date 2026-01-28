@@ -52,6 +52,16 @@ go test -run TestName ./...
 go test -v ./... | less
 ```
 
+### Linting
+
+Use [golangci-lint](https://golangci-lint.run/) for linting. Run it before committing changes:
+
+```bash
+golangci-lint run
+```
+
+All code must pass linting with no issues.
+
 ## Architecture
 
 The codebase is organized into three main logical components:

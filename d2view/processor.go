@@ -14,22 +14,25 @@ import (
 func ProcessViews(viewLayers []*d2graph.Graph, graph *d2graph.Graph) []View {
 	views := make([]View, 0)
 
+	// Create import cache once for all views to avoid re-parsing imported files
+	importCache := compile.NewImportCache(graph)
+
 	for _, layer := range viewLayers {
-		views = append(views, processView(layer, graph))
+		views = append(views, processView(layer, graph, importCache))
 	}
 
 	return views
 }
 
 // processView processes a single view layer and constructs a View object from it.
-func processView(layer *d2graph.Graph, graph *d2graph.Graph) View {
-	includeParentsRefs := compile.GetIncludeParentsReferences(graph, layer.Name)
+func processView(layer *d2graph.Graph, graph *d2graph.Graph, importCache *compile.ImportCache) View {
+	includeParentsRefs := compile.GetIncludeParentsReferences(graph, layer.Name, importCache)
 	explicitIds := getExplicitObjectIds(layer, includeParentsRefs)
 
 	return View{
 		Name:    layer.Name,
 		Label:   layer.Root.Label.Value,
-		Edges:   processViewEdges(layer, graph, explicitIds),
+		Edges:   processViewEdges(layer, graph, explicitIds, importCache),
 		Objects: processViewObjects(layer, graph, explicitIds),
 		Layer:   layer,
 	}
@@ -178,12 +181,12 @@ func getObjectLabel(obj *d2graph.Object) string {
 // Only edges where both the source and destination objects are explicitly present in the view layer are included.
 // Edge source/destination IDs are adjusted to reflect the filtered object hierarchy.
 // Edges with #override in the view layer override the labels of matching base edges.
-func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds map[string]struct{}) []*Edge {
+func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds map[string]struct{}, importCache *compile.ImportCache) []*Edge {
 	// Build a mapping from original absolute IDs to filtered absolute IDs
 	idMapping := buildFilteredIdMapping(layer, explicitIds)
 
 	// Get the override edges for this view - we'll track which ones get applied
-	overrideEdges := compile.GetOverrideEdges(graph, layer.Name)
+	overrideEdges := compile.GetOverrideEdges(graph, layer.Name, importCache)
 	appliedOverrides := make(map[compile.OverrideEdgeKey]struct{})
 
 	edges := make([]*Edge, 0, len(layer.Edges))
@@ -228,7 +231,7 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds ma
 	}
 
 	// Process edges defined in the view layer
-	allOverrideEdges := compile.GetOverrideEdges(graph, layer.Name)
+	allOverrideEdges := compile.GetOverrideEdges(graph, layer.Name, importCache)
 	for _, edge := range layer.Edges {
 		srcId := compile.GetAbsoluteId(edge.Src)
 		dstId := compile.GetAbsoluteId(edge.Dst)

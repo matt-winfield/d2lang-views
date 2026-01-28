@@ -2,6 +2,8 @@ package compile
 
 import (
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"oss.terrastruct.com/d2/d2ast"
@@ -148,19 +150,99 @@ type OverrideEdgeKey struct {
 	Label    string // The new label to apply
 }
 
-// GetOverrideEdges returns a set of edges that have the #override comment in the given view layer.
-// The returned map uses edge keys for matching against base layer edges.
-func GetOverrideEdges(graph *d2graph.Graph, viewName string) map[OverrideEdgeKey]struct{} {
-	result := make(map[OverrideEdgeKey]struct{})
+// ImportCache caches parsed AST nodes from imported files to avoid re-parsing
+// the same file multiple times. It should be created once per graph and reused
+// across all view processing.
+type ImportCache struct {
+	// nodesByPath maps absolute file paths to their parsed AST nodes
+	nodesByPath map[string][]d2ast.MapNodeBox
+}
 
-	viewNodes := getViewASTNodes(graph, viewName)
-	if viewNodes == nil {
-		return result
+// NewImportCache creates a new ImportCache and pre-parses all imported files
+// found in any view layer of the graph. This ensures each file is parsed only once.
+func NewImportCache(graph *d2graph.Graph) *ImportCache {
+	cache := &ImportCache{
+		nodesByPath: make(map[string][]d2ast.MapNodeBox),
 	}
 
-	for i, node := range viewNodes {
-		if key, ok := extractOverrideEdge(node, viewNodes, i); ok {
-			result[key] = struct{}{}
+	// Find all view layers and collect their imports
+	layersNode := getLayersNode(graph)
+	if layersNode == nil || layersNode.MapKey == nil || layersNode.MapKey.Value.Map == nil {
+		return cache
+	}
+
+	for _, layerNode := range layersNode.MapKey.Value.Map.Nodes {
+		if layerNode.MapKey == nil || layerNode.MapKey.Value.Map == nil {
+			continue
+		}
+		if !isViewNode(layerNode) {
+			continue
+		}
+
+		// Collect imports from this view
+		cache.collectImports(layerNode.MapKey.Value.Map.Nodes)
+	}
+
+	return cache
+}
+
+// collectImports recursively parses and caches imported files.
+func (c *ImportCache) collectImports(nodes []d2ast.MapNodeBox) {
+	for _, node := range nodes {
+		if node.Import == nil {
+			continue
+		}
+
+		importPath := resolveImportPath(node.Import)
+		if importPath == "" {
+			continue
+		}
+
+		// Skip already cached files
+		if _, exists := c.nodesByPath[importPath]; exists {
+			continue
+		}
+
+		// Parse and cache the imported file
+		importedNodes, err := parseImportedFile(importPath)
+		if err != nil {
+			// Cache empty slice to avoid retrying failed imports
+			c.nodesByPath[importPath] = nil
+			continue
+		}
+
+		c.nodesByPath[importPath] = importedNodes
+
+		// Recursively collect imports from this file
+		c.collectImports(importedNodes)
+	}
+}
+
+// GetNodes returns the cached AST nodes for the given file path.
+// Returns nil if the file was not found or failed to parse.
+func (c *ImportCache) GetNodes(path string) []d2ast.MapNodeBox {
+	if c == nil {
+		return nil
+	}
+	return c.nodesByPath[path]
+}
+
+// GetOverrideEdges returns a set of edges that have the #override comment in the given view layer.
+// The returned map uses edge keys for matching against base layer edges.
+// This function also scans imported files within the view for override comments.
+// If cache is nil, imports will be parsed on-demand (less efficient for multiple views).
+func GetOverrideEdges(graph *d2graph.Graph, viewName string, cache *ImportCache) map[OverrideEdgeKey]struct{} {
+	result := make(map[OverrideEdgeKey]struct{})
+
+	// Collect all nodes from the view and its imports
+	allNodeSets := collectAllViewNodes(graph, viewName, cache)
+
+	// Extract override edges from all node sets
+	for _, nodes := range allNodeSets {
+		for i, node := range nodes {
+			if key, ok := extractOverrideEdge(node, nodes, i); ok {
+				result[key] = struct{}{}
+			}
 		}
 	}
 
@@ -185,6 +267,72 @@ func getViewASTNodes(graph *d2graph.Graph, viewName string) []d2ast.MapNodeBox {
 	}
 
 	return nil
+}
+
+// collectAllViewNodes collects all AST nodes from a view layer and its imported files.
+// Returns a slice of node slices - each slice represents one file's nodes to preserve
+// the node ordering needed for inline comment detection.
+// If cache is provided, it will be used to retrieve pre-parsed imports.
+// If cache is nil, imports will be parsed on-demand.
+func collectAllViewNodes(graph *d2graph.Graph, viewName string, cache *ImportCache) [][]d2ast.MapNodeBox {
+	var result [][]d2ast.MapNodeBox
+
+	viewNodes := getViewASTNodes(graph, viewName)
+	if viewNodes == nil {
+		return result
+	}
+
+	// Add the direct view nodes
+	result = append(result, viewNodes)
+
+	// Recursively collect nodes from imported files
+	visited := make(map[string]struct{})
+	collectNodesFromImports(viewNodes, &result, visited, cache)
+
+	return result
+}
+
+// collectNodesFromImports recursively collects AST nodes from imported files.
+// Uses the cache if available, otherwise parses files on-demand.
+func collectNodesFromImports(nodes []d2ast.MapNodeBox, result *[][]d2ast.MapNodeBox, visited map[string]struct{}, cache *ImportCache) {
+	for _, node := range nodes {
+		if node.Import == nil {
+			continue
+		}
+
+		importPath := resolveImportPath(node.Import)
+		if importPath == "" {
+			continue
+		}
+
+		// Skip already visited files to prevent infinite recursion
+		if _, seen := visited[importPath]; seen {
+			continue
+		}
+		visited[importPath] = struct{}{}
+
+		// Get the imported nodes from cache or parse on-demand
+		var importedNodes []d2ast.MapNodeBox
+		if cache != nil {
+			importedNodes = cache.GetNodes(importPath)
+		} else {
+			var err error
+			importedNodes, err = parseImportedFile(importPath)
+			if err != nil {
+				continue
+			}
+		}
+
+		if importedNodes == nil {
+			continue
+		}
+
+		// Add this file's nodes to the result
+		*result = append(*result, importedNodes)
+
+		// Recursively process imports within this file
+		collectNodesFromImports(importedNodes, result, visited, cache)
+	}
 }
 
 // extractOverrideEdge checks if the node at index i is an edge with an inline #override comment.
@@ -262,17 +410,20 @@ func getEdgeLabelFromValue(value d2ast.ValueBox) string {
 
 // GetIncludeParentsReferences returns a set of reference paths that have the #include-parents comment.
 // Keys are stored in lowercase for case-insensitive matching.
-func GetIncludeParentsReferences(graph *d2graph.Graph, viewName string) map[string]struct{} {
+// This function also scans imported files within the view for include-parents comments.
+// If cache is nil, imports will be parsed on-demand (less efficient for multiple views).
+func GetIncludeParentsReferences(graph *d2graph.Graph, viewName string, cache *ImportCache) map[string]struct{} {
 	result := make(map[string]struct{})
 
-	viewNodes := getViewASTNodes(graph, viewName)
-	if viewNodes == nil {
-		return result
-	}
+	// Collect all nodes from the view and its imports
+	allNodeSets := collectAllViewNodes(graph, viewName, cache)
 
-	for i, node := range viewNodes {
-		if path := extractIncludeParentsReference(node, viewNodes, i); path != "" {
-			result[strings.ToLower(path)] = struct{}{}
+	// Extract include-parents references from all node sets
+	for _, nodes := range allNodeSets {
+		for i, node := range nodes {
+			if path := extractIncludeParentsReference(node, nodes, i); path != "" {
+				result[strings.ToLower(path)] = struct{}{}
+			}
 		}
 	}
 
@@ -319,4 +470,57 @@ func hasInlineIncludeParentsComment(node d2ast.MapNodeBox, nodes []d2ast.MapNode
 
 	// Comment can be on the start line (single-line reference) or end line (multi-line block)
 	return commentLine == refStartLine || commentLine == refEndLine
+}
+
+// resolveImportPath extracts and resolves the full file path from an import node.
+// Returns the absolute path to the imported file, or empty string if unable to resolve.
+func resolveImportPath(imp *d2ast.Import) string {
+	if imp == nil || len(imp.Path) == 0 {
+		return ""
+	}
+
+	// Get the source file's directory from the import's range
+	sourceDir := filepath.Dir(imp.Range.Path)
+
+	// Build the import path from path components
+	var pathParts []string
+	for _, part := range imp.Path {
+		pathParts = append(pathParts, part.Unbox().ScalarString())
+	}
+	importPath := strings.Join(pathParts, "/")
+
+	// Prepend the Pre field which contains relative path prefixes like "../"
+	if imp.Pre != "" {
+		importPath = imp.Pre + importPath
+	}
+
+	// Add .d2 extension if not present
+	if !strings.HasSuffix(importPath, ".d2") {
+		importPath += ".d2"
+	}
+
+	// Resolve relative to source file's directory
+	fullPath := filepath.Join(sourceDir, importPath)
+
+	return fullPath
+}
+
+// parseImportedFile parses a D2 file and returns its AST nodes.
+func parseImportedFile(path string) (nodes []d2ast.MapNodeBox, err error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
+
+	graph, _, err := CompileD2(path, file)
+	if err != nil {
+		return nil, err
+	}
+
+	return graph.AST.Nodes, nil
 }
