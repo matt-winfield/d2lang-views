@@ -2328,6 +2328,51 @@ layers: {
 }
 `,
 		},
+		{
+			name: "WildcardImport",
+			content: `a: "Node A"
+b: "Node B"
+c: "Node C" {
+    d: "Node D" {
+        e: "Node E"
+    }
+    f: "Node F"
+}
+
+a -> b
+c.d -> c.f
+a -> c.d.e
+
+layers: {
+    view1: { #view
+        # include pattern=c.*
+    }
+}
+`,
+			expected: `a: "Node A"
+b: "Node B"
+c: "Node C" {
+    d: "Node D" {
+        e: "Node E"
+    }
+    f: "Node F"
+}
+
+a -> b
+c.d -> c.f
+a -> c.d.e
+
+layers: {
+    view1: {
+        c: "Node C"
+        c.d: "Node D"
+        c.d.e: "Node E"
+        c.f: "Node F"
+        c.d -> c.f
+    }
+}
+`,
+		},
 	}
 
 	for _, tt := range tests {
