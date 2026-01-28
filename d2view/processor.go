@@ -117,9 +117,6 @@ func getExplicitObjectIds(layer *d2graph.Graph, graph *d2graph.Graph, includePar
 
 	// Process include patterns - add matching root objects and their ancestors as explicit
 	for _, pattern := range includePatterns {
-		// Mark ancestors of the pattern prefix as explicit
-		markPatternAncestorsAsExplicit(pattern, explicitIds)
-
 		// Mark all matching objects as explicit
 		for _, rootId := range rootObjectIds {
 			if matchesIncludePattern(strings.ToLower(rootId), pattern) {
@@ -168,28 +165,15 @@ func getExplicitObjectIds(layer *d2graph.Graph, graph *d2graph.Graph, includePar
 	return explicitIds
 }
 
-// markPatternAncestorsAsExplicit marks all ancestors of a pattern's prefix as explicit.
-// For example, pattern "a.b.c.*" will mark "a" and "a.b" as explicit (the prefix "a.b.c" itself
-// will be marked when matching objects).
-func markPatternAncestorsAsExplicit(pattern string, explicitIds map[string]struct{}) {
-	// Extract the prefix (everything before ".*")
-	if !strings.HasSuffix(pattern, ".*") {
-		return
-	}
-	prefix := strings.TrimSuffix(pattern, ".*")
-
-	// Split the prefix into parts and mark each ancestor
-	parts := strings.Split(prefix, ".")
-	for i := 1; i < len(parts); i++ {
-		ancestor := strings.Join(parts[:i], ".")
-		explicitIds[ancestor] = struct{}{}
-	}
-}
-
 // matchesIncludePattern checks if an object ID matches the given pattern.
 // The pattern format is "prefix.*" which matches the prefix itself and all children.
 // For example, "cf.*" matches "cf", "cf.stack1", "cf.stack1.resource1", etc.
 func matchesIncludePattern(objectId, pattern string) bool {
+	// a.b matches a.b.*
+	if strings.HasPrefix(pattern, objectId) {
+		return true
+	}
+
 	// Pattern should end with ".*"
 	if !strings.HasSuffix(pattern, ".*") {
 		return false
