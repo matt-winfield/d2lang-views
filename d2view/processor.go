@@ -28,8 +28,9 @@ func ProcessViews(viewLayers []*d2graph.Graph, graph *d2graph.Graph) []View {
 func processView(layer *d2graph.Graph, graph *d2graph.Graph, importCache *compile.ImportCache) View {
 	includeParentsRefs := compile.GetIncludeParentsReferences(graph, layer.Name, importCache)
 	includePatterns := compile.GetIncludePatternReferences(graph, layer.Name, importCache)
+	includeClasses := compile.GetIncludeClassReferences(graph, layer.Name, importCache)
 	rootObjectIds := compile.ExtractRootObjectIds(graph)
-	explicitIds := getExplicitObjectIds(layer, includeParentsRefs, includePatterns, rootObjectIds)
+	explicitIds := getExplicitObjectIds(layer, graph, includeParentsRefs, includePatterns, includeClasses, rootObjectIds)
 
 	return View{
 		Name:    layer.Name,
@@ -111,7 +112,7 @@ func processBaseGraphObject(obj *d2graph.Object, explicitIds map[string]struct{}
 // When include patterns are provided, all root objects matching the patterns are also marked as explicit,
 // along with all ancestors of the pattern prefix (similar to include-parents behavior).
 // Keys are stored in lowercase for case-insensitive matching.
-func getExplicitObjectIds(layer *d2graph.Graph, includeParentsRefs map[string]struct{}, includePatterns []string, rootObjectIds []string) map[string]struct{} {
+func getExplicitObjectIds(layer *d2graph.Graph, graph *d2graph.Graph, includeParentsRefs map[string]struct{}, includePatterns []string, includeClasses []string, rootObjectIds []string) map[string]struct{} {
 	explicitIds := make(map[string]struct{})
 
 	// Process include patterns - add matching root objects and their ancestors as explicit
@@ -122,6 +123,16 @@ func getExplicitObjectIds(layer *d2graph.Graph, includeParentsRefs map[string]st
 		// Mark all matching objects as explicit
 		for _, rootId := range rootObjectIds {
 			if matchesIncludePattern(strings.ToLower(rootId), pattern) {
+				explicitIds[strings.ToLower(rootId)] = struct{}{}
+			}
+		}
+	}
+
+	// Process include classes - add matching root objects and their ancestors as explicit
+	for _, pattern := range includeClasses {
+		// Mark all matching objects as explicit
+		for _, rootId := range rootObjectIds {
+			if matchesClass(strings.ToLower(rootId), pattern, graph) {
 				explicitIds[strings.ToLower(rootId)] = struct{}{}
 			}
 		}
@@ -191,6 +202,25 @@ func matchesIncludePattern(objectId, pattern string) bool {
 	// 1. objectId equals the prefix exactly (e.g., "cf" matches "cf.*")
 	// 2. objectId starts with prefix + "." (e.g., "cf.stack1" matches "cf.*")
 	return objectId == prefix || strings.HasPrefix(objectId, prefix+".")
+}
+
+// matchesClass checks if an object ID matches the given class pattern.
+// The pattern format is "prefix.*" which matches the prefix itself and all children.
+// For example, "cf.*" matches "cf", "cf.stack1", "cf.stack1.resource1", etc.
+func matchesClass(objectId, class string, graph *d2graph.Graph) bool {
+	obj, err := compile.FindObjectById(graph, objectId)
+	if err != nil || obj == nil {
+		return false
+	}
+
+	// Check if the object has the specified class
+	for _, objClass := range obj.Classes {
+		if strings.EqualFold(objClass, class) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // markAncestorsAsExplicit walks up the parent chain and marks all ancestors as explicit.

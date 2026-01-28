@@ -21,16 +21,15 @@ func extractImports(content string) []string {
 	imports := []string{}
 
 	// Process line by line to avoid matching imports inside strings
-	lines := strings.Split(content, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(content, "\n")
+	for line := range lines {
 		// Skip if the @ is inside a string (simple heuristic: count quotes before @)
-		atIdx := strings.Index(line, "@")
-		if atIdx == -1 {
+		beforeAt, _, ok := strings.Cut(line, "@")
+		if !ok {
 			continue
 		}
 
 		// Check if @ is inside a string by counting unescaped quotes before it
-		beforeAt := line[:atIdx]
 		quoteCount := strings.Count(beforeAt, `"`) - strings.Count(beforeAt, `\"`)
 		if quoteCount%2 == 1 {
 			// @ is inside a string, skip this line

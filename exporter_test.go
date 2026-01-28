@@ -2284,7 +2284,7 @@ layers: {
 `,
 		},
 		{
-			name: "WildcardImport",
+			name: "IncludeWildcardPattern",
 			content: `a: "Node A"
 b: "Node B"
 c: "Node C" {
@@ -2324,6 +2324,66 @@ layers: {
         c.d.e: "Node E"
         c.f: "Node F"
         c.d -> c.f
+    }
+}
+`,
+		},
+		{
+			name: "IncludeClass",
+			content: `a: "Node A" { class: group1 }
+b: "Node B" { class: group2 }
+c: "Node C" {
+    class: group1
+    d: "Node D" {
+        e: "Node E"
+    }
+    f: "Node F"
+}
+g: {
+    h: "Node H" { class: group1 }
+}
+
+a -> b
+c.d -> c.f
+a -> c.d.e
+a -> g.h
+
+layers: {
+    view1: { #view
+        # include class=group1
+    }
+}
+`,
+			expected: `a: "Node A" { class: group1 }
+b: "Node B" { class: group2 }
+c: "Node C" {
+    class: group1
+    d: "Node D" {
+        e: "Node E"
+    }
+    f: "Node F"
+}
+g: {
+    h: "Node H" { class: group1 }
+}
+
+a -> b
+c.d -> c.f
+a -> c.d.e
+a -> g.h
+
+layers: {
+    view1: {
+        a: "Node A" {
+            class: group1
+        }
+        c: "Node C" {
+            class: group1
+        }
+        h: "Node H" {
+            class: group1
+        }
+        a -> h
     }
 }
 `,

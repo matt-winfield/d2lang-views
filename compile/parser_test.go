@@ -682,15 +682,111 @@ layers: {
 			}
 
 			for _, expectedPattern := range tt.expectedPatterns {
-				found := false
-				for _, actualPattern := range patterns {
-					if actualPattern == expectedPattern {
-						found = true
-						break
-					}
-				}
+				found := slices.Contains(patterns, expectedPattern)
 				if !found {
 					t.Errorf("expected pattern %q not found in patterns: %v", expectedPattern, patterns)
+				}
+			}
+		})
+	}
+}
+
+func TestGetIncludeClassReferences(t *testing.T) {
+	tests := []struct {
+		name             string
+		content          string
+		viewName         string
+		expectedPatterns []string // list of patterns expected
+	}{
+		{
+			name: "simple_class",
+			content: `cf: {
+    child1: "Child 1"
+    child2: "Child 2"
+}
+other: "Other"
+
+layers: {
+    view1: { #view
+        # include class=db
+    }
+}
+`,
+			viewName:         "view1",
+			expectedPatterns: []string{"db"},
+		},
+		{
+			name: "multiple_classes",
+			content: `cf: {
+    child1: "Child 1"
+}
+aws: {
+    service1: "Service 1"
+}
+
+layers: {
+    view1: { #view
+        # include class=db
+        # include class=aws
+    }
+}
+`,
+			viewName:         "view1",
+			expectedPatterns: []string{"db", "aws"},
+		},
+		{
+			name: "no_classes",
+			content: `a: "A"
+b: "B"
+
+layers: {
+    view1: { #view
+        a
+        b
+    }
+}
+`,
+			viewName:         "view1",
+			expectedPatterns: []string{},
+		},
+		{
+			name: "class_in_different_view",
+			content: `cf: {
+    child1: "Child 1"
+}
+
+layers: {
+    view1: { #view
+        # include class=db
+    }
+    view2: { #view
+        cf.child1
+    }
+}
+`,
+			viewName:         "view2",
+			expectedPatterns: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := strings.NewReader(tt.content)
+			graph, _, err := CompileD2("test.d2", reader)
+			if err != nil {
+				t.Fatalf("failed to parse: %v", err)
+			}
+
+			patterns := GetIncludeClassReferences(graph, tt.viewName, nil)
+
+			if len(patterns) != len(tt.expectedPatterns) {
+				t.Fatalf("expected %d classes, got %d: %v", len(tt.expectedPatterns), len(patterns), patterns)
+			}
+
+			for _, expectedPattern := range tt.expectedPatterns {
+				found := slices.Contains(patterns, expectedPattern)
+				if !found {
+					t.Errorf("expected class %q not found in classes: %v", expectedPattern, patterns)
 				}
 			}
 		})
@@ -876,13 +972,7 @@ layers: {
 			}
 
 			for _, expectedLabel := range tt.expectedLabels {
-				found := false
-				for _, actualLabel := range actualLabels {
-					if actualLabel == expectedLabel {
-						found = true
-						break
-					}
-				}
+				found := slices.Contains(actualLabels, expectedLabel)
 				if !found {
 					t.Errorf("expected label %q not found in override edges", expectedLabel)
 				}

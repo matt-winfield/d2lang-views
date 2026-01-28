@@ -355,6 +355,51 @@ layers: {
 }
 ```
 
+### Referencing with Classes (tags)
+
+You can reference entities by class using `# include class=<class-name>`. This can be useful to tag entities and include them in views:
+
+```d2
+infrastructure: {
+        server1: "Server 1" { class: "compute" }
+        server2: "Server 2" { class: "compute" }
+        db1: "Database 1" { class: "storage" }
+        db2: "Database 2" { class: "storage" }
+        redis1: "Redis Cache 1" { class: "cache" }
+        redis2: "Redis Cache 2" { class: "cache" }
+}
+
+infrastructure.server1 -> infrastructure.db1
+infrastructure.server2 -> infrastructure.db2
+infrastructure.server1 -> infrastructure.redis1
+infrastructure.server2 -> infrastructure.redis2
+
+layers: {
+    wildcard: { #view
+        # include class=compute
+        # include class=storage
+    }
+}
+```
+
+Generates:
+
+```d2
+layers: {
+    wildcard: {
+        server1: "Server 1"
+        server2: "Server 2"
+        db1: "Database 1"
+        db2: "Database 2"
+        server1 -> db1
+        server2 -> db2
+    }
+}
+```
+
+Note that children of matching entities are NOT automatically included, unless they also match the class.
+Parent containers of a matching entity are also NOT automatically included, unless explicitly referenced.
+
 ## Features
 
 - Automatic entity expansion with labels
@@ -379,8 +424,10 @@ layers: {
 - [x] Output the generated d2 diagram in the same directory as the source (to preserve relative import paths).
 - [x] Support CLI option to disable outputting non-view layers as SVGs.
 - [ ] Support disabling outputting the compiled D2 file via CLI option.
-- [ ] Support `# include class=<class-name>` to include entities of a specific class in the view. (tagging)
+- [x] Support `# include class=<class-name>` to include entities of a specific class in the view. (tagging)
+    - [ ] Support class wildcards e.g. `# include class=service-*`, `# include class=*-db`
 - [x] Support wildcard references `# include pattern=something.*` to include multiple entities matching a pattern.
+    - [ ] Support wildcards not at the end e.g. `# include pattern=*-worker`, `# include pattern=service-*-db`
 - [x] Support auto-including parent containers via `# include-parents` comment following the entity reference.
 - [x] Include comments around the generated view definitions for clarity. Include the version of the tool used to generate it.
 - [x] Automatically compile the generated view diagrams using the D2 CLI.

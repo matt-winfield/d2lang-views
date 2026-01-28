@@ -75,7 +75,7 @@ func getViewContentRange(view *d2graph.Graph, graph *d2graph.Graph, source strin
 }
 
 func getIndentationAtByte(source string, byteIndex int) string {
-	indentation := ""
+	var indentation strings.Builder
 	if byteIndex < len(source) {
 		// Find the start of the line
 		lineStart := byteIndex
@@ -85,13 +85,13 @@ func getIndentationAtByte(source string, byteIndex int) string {
 		// Collect whitespace from lineStart to startByte
 		for i := lineStart; i < byteIndex && i < len(source); i++ {
 			if source[i] == ' ' || source[i] == '\t' {
-				indentation += string(source[i])
+				indentation.WriteString(string(source[i]))
 			} else {
 				break
 			}
 		}
 	}
-	return indentation
+	return indentation.String()
 }
 
 func getLayersAstNode(graph *d2graph.Graph) *d2ast.MapNodeBox {
