@@ -571,6 +571,132 @@ steps: {
 	}
 }
 
+func TestGetIncludePatternReferences(t *testing.T) {
+	tests := []struct {
+		name             string
+		content          string
+		viewName         string
+		expectedPatterns []string // list of patterns expected
+	}{
+		{
+			name: "single_pattern_with_wildcard",
+			content: `cf: {
+    child1: "Child 1"
+    child2: "Child 2"
+}
+other: "Other"
+
+layers: {
+    view1: { #view
+        # include pattern=cf.*
+    }
+}
+`,
+			viewName:         "view1",
+			expectedPatterns: []string{"cf.*"},
+		},
+		{
+			name: "pattern_after_reference",
+			content: `cf: {
+    child1: "Child 1"
+    child2: "Child 2"
+}
+other: "Other"
+
+layers: {
+    view1: { #view
+        other
+        # include pattern=cf.*
+    }
+}
+`,
+			viewName:         "view1",
+			expectedPatterns: []string{"cf.*"},
+		},
+		{
+			name: "multiple_patterns",
+			content: `cf: {
+    child1: "Child 1"
+}
+aws: {
+    service1: "Service 1"
+}
+
+layers: {
+    view1: { #view
+        # include pattern=cf.*
+        # include pattern=aws.*
+    }
+}
+`,
+			viewName:         "view1",
+			expectedPatterns: []string{"cf.*", "aws.*"},
+		},
+		{
+			name: "no_patterns",
+			content: `a: "A"
+b: "B"
+
+layers: {
+    view1: { #view
+        a
+        b
+    }
+}
+`,
+			viewName:         "view1",
+			expectedPatterns: []string{},
+		},
+		{
+			name: "pattern_in_different_view",
+			content: `cf: {
+    child1: "Child 1"
+}
+
+layers: {
+    view1: { #view
+        # include pattern=cf.*
+    }
+    view2: { #view
+        cf.child1
+    }
+}
+`,
+			viewName:         "view2",
+			expectedPatterns: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := strings.NewReader(tt.content)
+			graph, _, err := CompileD2("test.d2", reader)
+			if err != nil {
+				t.Fatalf("failed to parse: %v", err)
+			}
+
+			patterns := GetIncludePatternReferences(graph, tt.viewName, nil)
+
+			if len(patterns) != len(tt.expectedPatterns) {
+				t.Fatalf("expected %d patterns, got %d: %v", len(tt.expectedPatterns), len(patterns), patterns)
+			}
+
+			for _, expectedPattern := range tt.expectedPatterns {
+				found := false
+				for _, actualPattern := range patterns {
+					if actualPattern == expectedPattern {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("expected pattern %q not found in patterns: %v", expectedPattern, patterns)
+				}
+			}
+		})
+	}
+}
+
 func TestGetOverrideEdges(t *testing.T) {
 	tests := []struct {
 		name           string

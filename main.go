@@ -144,6 +144,7 @@ func runCompilation() error {
 		ViewLayerNames: getViewLayerNames(graph),
 	}
 
+	color.Blue("info: Rendering SVG to %s", svgOutputPath)
 	result, err := render.Render(renderOpts)
 	if err != nil {
 		return fmt.Errorf("unable to compile to SVG: %w", err)

@@ -1055,6 +1055,368 @@ layers: {
 	}
 }
 
+func TestProcessViews_IncludePattern(t *testing.T) {
+	tests := []struct {
+		name                   string
+		content                string
+		expectedViewNames      []string
+		expectedObjectsPerView [][]struct {
+			id    string
+			label string
+			ida   []string
+		}
+		expectedEdgesPerView [][]struct {
+			src      string
+			dst      string
+			srcArrow bool
+			dstArrow bool
+		}
+	}{
+		{
+			name: "pattern matches parent and all children",
+			content: `
+cf: "CloudFormation" {
+    stack1: "Stack 1"
+    stack2: "Stack 2"
+}
+other: "Other Service"
+layers: {
+    view1: { #view
+        # include pattern=cf.*
+    }
+}
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+				ida   []string
+			}{
+				{
+					{id: "cf", label: "CloudFormation", ida: []string{"cf"}},
+					{id: "stack1", label: "Stack 1", ida: []string{"cf", "stack1"}},
+					{id: "stack2", label: "Stack 2", ida: []string{"cf", "stack2"}},
+				},
+			},
+			expectedEdgesPerView: [][]struct {
+				src      string
+				dst      string
+				srcArrow bool
+				dstArrow bool
+			}{
+				{},
+			},
+		},
+		{
+			name: "pattern matches deeply nested children",
+			content: `
+cf: "CloudFormation" {
+    stack1: "Stack 1" {
+        resource1: "Resource 1"
+    }
+}
+layers: {
+    view1: { #view
+        # include pattern=cf.*
+    }
+}
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+				ida   []string
+			}{
+				{
+					{id: "cf", label: "CloudFormation", ida: []string{"cf"}},
+					{id: "stack1", label: "Stack 1", ida: []string{"cf", "stack1"}},
+					{id: "resource1", label: "Resource 1", ida: []string{"cf", "stack1", "resource1"}},
+				},
+			},
+			expectedEdgesPerView: [][]struct {
+				src      string
+				dst      string
+				srcArrow bool
+				dstArrow bool
+			}{
+				{},
+			},
+		},
+		{
+			name: "pattern with explicit additional objects",
+			content: `
+cf: "CloudFormation" {
+    stack1: "Stack 1"
+}
+other: "Other Service"
+layers: {
+    view1: { #view
+        # include pattern=cf.*
+        other
+    }
+}
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+				ida   []string
+			}{
+				{
+					// View layer objects come first, then pattern-matched base graph objects
+					{id: "other", label: "Other Service", ida: []string{"other"}},
+					{id: "cf", label: "CloudFormation", ida: []string{"cf"}},
+					{id: "stack1", label: "Stack 1", ida: []string{"cf", "stack1"}},
+				},
+			},
+			expectedEdgesPerView: [][]struct {
+				src      string
+				dst      string
+				srcArrow bool
+				dstArrow bool
+			}{
+				{},
+			},
+		},
+		{
+			name: "pattern includes edges between matched objects",
+			content: `
+cf: "CloudFormation" {
+    stack1: "Stack 1"
+    stack2: "Stack 2"
+}
+cf.stack1 -> cf.stack2
+layers: {
+    view1: { #view
+        # include pattern=cf.*
+    }
+}
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+				ida   []string
+			}{
+				{
+					{id: "cf", label: "CloudFormation", ida: []string{"cf"}},
+					{id: "stack1", label: "Stack 1", ida: []string{"cf", "stack1"}},
+					{id: "stack2", label: "Stack 2", ida: []string{"cf", "stack2"}},
+				},
+			},
+			expectedEdgesPerView: [][]struct {
+				src      string
+				dst      string
+				srcArrow bool
+				dstArrow bool
+			}{
+				{
+					{src: "cf.stack1", dst: "cf.stack2", srcArrow: false, dstArrow: true},
+				},
+			},
+		},
+		{
+			name: "multiple patterns",
+			content: `
+cf: "CloudFormation" {
+    stack1: "Stack 1"
+}
+aws: "AWS" {
+    service1: "Service 1"
+}
+other: "Other"
+layers: {
+    view1: { #view
+        # include pattern=cf.*
+        # include pattern=aws.*
+    }
+}
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+				ida   []string
+			}{
+				{
+					// Objects are ordered by base graph iteration order
+					{id: "cf", label: "CloudFormation", ida: []string{"cf"}},
+					{id: "stack1", label: "Stack 1", ida: []string{"cf", "stack1"}},
+					{id: "aws", label: "AWS", ida: []string{"aws"}},
+					{id: "service1", label: "Service 1", ida: []string{"aws", "service1"}},
+				},
+			},
+			expectedEdgesPerView: [][]struct {
+				src      string
+				dst      string
+				srcArrow bool
+				dstArrow bool
+			}{
+				{},
+			},
+		},
+		{
+			name: "pattern case insensitive",
+			content: `
+CF: "CloudFormation" {
+    Stack1: "Stack 1"
+}
+layers: {
+    view1: { #view
+        # include pattern=cf.*
+    }
+}
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+				ida   []string
+			}{
+				{
+					{id: "CF", label: "CloudFormation", ida: []string{"CF"}},
+					{id: "Stack1", label: "Stack 1", ida: []string{"CF", "Stack1"}},
+				},
+			},
+			expectedEdgesPerView: [][]struct {
+				src      string
+				dst      string
+				srcArrow bool
+				dstArrow bool
+			}{
+				{},
+			},
+		},
+		{
+			name: "pattern only matches parent when no children",
+			content: `
+cf: "CloudFormation"
+other: "Other"
+layers: {
+    view1: { #view
+        # include pattern=cf.*
+    }
+}
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+				ida   []string
+			}{
+				{
+					{id: "cf", label: "CloudFormation", ida: []string{"cf"}},
+				},
+			},
+			expectedEdgesPerView: [][]struct {
+				src      string
+				dst      string
+				srcArrow bool
+				dstArrow bool
+			}{
+				{},
+			},
+		},
+		{
+			name: "nested pattern match",
+			content: `
+root: "Root" {
+    cf: "CloudFormation" {
+        stack1: "Stack 1"
+    }
+}
+layers: {
+    view1: { #view
+        # include pattern=root.cf.*
+    }
+}
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+				ida   []string
+			}{
+				{
+					{id: "root", label: "Root", ida: []string{"root"}},
+					{id: "cf", label: "CloudFormation", ida: []string{"root", "cf"}},
+					{id: "stack1", label: "Stack 1", ida: []string{"root", "cf", "stack1"}},
+				},
+			},
+			expectedEdgesPerView: [][]struct {
+				src      string
+				dst      string
+				srcArrow bool
+				dstArrow bool
+			}{
+				{},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := strings.NewReader(tt.content)
+			graph, _, err := compile.CompileD2("test.d2", reader)
+			if err != nil {
+				t.Fatalf("setup failed: %v", err)
+			}
+
+			viewLayers := compile.GetViewsNodes(graph)
+			views := ProcessViews(viewLayers, graph)
+
+			if len(views) != len(tt.expectedViewNames) {
+				t.Fatalf("expected %d views, got %d", len(tt.expectedViewNames), len(views))
+			}
+
+			for i, expectedViewName := range tt.expectedViewNames {
+				if views[i].Name != expectedViewName {
+					t.Fatalf("expected view name '%s', got '%s'", expectedViewName, views[i].Name)
+				}
+
+				expectedObjects := tt.expectedObjectsPerView[i]
+				if len(views[i].Objects) != len(expectedObjects) {
+					t.Fatalf("expected %d objects in view, got %d.\nExpected: %+v\nGot objects with IDs: %v",
+						len(expectedObjects), len(views[i].Objects), expectedObjects, getObjectIDs(views[i].Objects))
+				}
+
+				for j, expectedObj := range expectedObjects {
+					if views[i].Objects[j].ID != expectedObj.id {
+						t.Fatalf("expected object ID '%s', got '%s'", expectedObj.id, views[i].Objects[j].ID)
+					}
+					if views[i].Objects[j].Label != expectedObj.label {
+						t.Fatalf("expected object Label '%s', got '%s'", expectedObj.label, views[i].Objects[j].Label)
+					}
+					if !reflect.DeepEqual(views[i].Objects[j].StringIDA(), expectedObj.ida) {
+						t.Fatalf("expected object StringIDA() '%v', got '%v'", expectedObj.ida, views[i].Objects[j].StringIDA())
+					}
+				}
+
+				expectedEdges := tt.expectedEdgesPerView[i]
+				if len(views[i].Edges) != len(expectedEdges) {
+					t.Fatalf("expected %d edges in view, got %d", len(expectedEdges), len(views[i].Edges))
+				}
+
+				for k, expectedEdge := range expectedEdges {
+					edge := views[i].Edges[k]
+					if edge.Src != expectedEdge.src {
+						t.Fatalf("expected edge source '%s', got '%s'", expectedEdge.src, edge.Src)
+					}
+					if edge.Dst != expectedEdge.dst {
+						t.Fatalf("expected edge destination '%s', got '%s'", expectedEdge.dst, edge.Dst)
+					}
+					if edge.SrcArrow != expectedEdge.srcArrow {
+						t.Fatalf("expected edge source arrow '%v', got '%v'", expectedEdge.srcArrow, edge.SrcArrow)
+					}
+					if edge.DstArrow != expectedEdge.dstArrow {
+						t.Fatalf("expected edge destination arrow '%v', got '%v'", expectedEdge.dstArrow, edge.DstArrow)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestProcessViews_CaseInsensitiveMatching(t *testing.T) {
 	tests := []struct {
 		name                   string

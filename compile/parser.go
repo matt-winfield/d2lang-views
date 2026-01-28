@@ -472,6 +472,49 @@ func hasInlineIncludeParentsComment(node d2ast.MapNodeBox, nodes []d2ast.MapNode
 	return commentLine == refStartLine || commentLine == refEndLine
 }
 
+// GetIncludePatternReferences returns a slice of patterns from #include pattern=... comments.
+// Patterns are stored in lowercase for case-insensitive matching.
+// This function scans the view layer and imported files for include pattern comments.
+// If cache is nil, imports will be parsed on-demand (less efficient for multiple views).
+func GetIncludePatternReferences(graph *d2graph.Graph, viewName string, cache *ImportCache) []string {
+	var result []string
+
+	// Collect all nodes from the view and its imports
+	allNodeSets := collectAllViewNodes(graph, viewName, cache)
+
+	// Extract include patterns from all node sets
+	for _, nodes := range allNodeSets {
+		for _, node := range nodes {
+			patterns := extractIncludePatterns(node)
+			result = append(result, patterns...)
+		}
+	}
+
+	return result
+}
+
+// extractIncludePatterns checks if the node is a comment with #include pattern=...
+// Returns all patterns found (since comments can span multiple lines with multiple patterns).
+func extractIncludePatterns(node d2ast.MapNodeBox) []string {
+	if node.Comment == nil {
+		return nil
+	}
+
+	var patterns []string
+
+	// Check each line in the comment (comments can span multiple lines)
+	lines := strings.Split(node.Comment.Value, "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "include pattern=") {
+			pattern := strings.TrimPrefix(trimmed, "include pattern=")
+			patterns = append(patterns, strings.ToLower(pattern))
+		}
+	}
+
+	return patterns
+}
+
 // resolveImportPath extracts and resolves the full file path from an import node.
 // Returns the absolute path to the imported file, or empty string if unable to resolve.
 func resolveImportPath(imp *d2ast.Import) string {

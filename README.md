@@ -307,6 +307,54 @@ The `#override` comment:
 
 Edge styles, classes, and other properties from the base diagram are automatically preserved in views, even without `#override`.
 
+### Referencing with Wildcards
+
+You can reference multiple entities using wildcard patterns with `# include pattern=<pattern>`:
+
+```d2
+infrastructure: {
+    compute: {
+        server1: "Server 1"
+        server2: "Server 2"
+    }
+    storage: {
+        db1: "Database 1"
+        db2: "Database 2"
+    }
+    cache: {
+        redis1: "Redis Cache 1"
+        redis2: "Redis Cache 2"
+    }
+}
+
+infrastructure.compute.server1 -> infrastructure.storage.db1
+infrastructure.compute.server2 -> infrastructure.storage.db2
+infrastructure.compute.server1 -> infrastructure.cache.redis1
+infrastructure.compute.server2 -> infrastructure.cache.redis2
+
+layers: {
+    wildcard: { #view
+        # include pattern=infrastructure.compute.*
+        # include pattern=infrastructure.storage.*
+    }
+}
+```
+
+Generates:
+
+```d2
+layers: {
+    wildcard: {
+        infrastructure.compute.server1: "Server 1"
+        infrastructure.compute.server2: "Server 2"
+        infrastructure.storage.db1: "Database 1"
+        infrastructure.storage.db2: "Database 2"
+        infrastructure.compute.server1 -> infrastructure.storage.db1
+        infrastructure.compute.server2 -> infrastructure.storage.db2
+    }
+}
+```
+
 ## Features
 
 - Automatic entity expansion with labels
@@ -332,7 +380,7 @@ Edge styles, classes, and other properties from the base diagram are automatical
 - [x] Support CLI option to disable outputting non-view layers as SVGs.
 - [ ] Support disabling outputting the compiled D2 file via CLI option.
 - [ ] Support `# include class=<class-name>` to include entities of a specific class in the view. (tagging)
-- [ ] Support wildcard references `# include pattern=something.*` to include multiple entities matching a pattern.
+- [x] Support wildcard references `# include pattern=something.*` to include multiple entities matching a pattern.
 - [x] Support auto-including parent containers via `# include-parents` comment following the entity reference.
 - [x] Include comments around the generated view definitions for clarity. Include the version of the tool used to generate it.
 - [x] Automatically compile the generated view diagrams using the D2 CLI.

@@ -1,25 +1,25 @@
 # Example with nested entities and multiple views
 infrastructure: "Cloud Infrastructure" {
-    compute: "Compute Layer" {
-        web: "Web Servers"
-        api: "API Servers"
-        workers: "Background Workers"
-    }
-    data: "Data Layer" {
-        primary_db: "Primary Database"
-        replica_db: "Read Replica"
-        cache: "Redis Cache"
-    }
-    messaging: "Messaging" {
-        queue: "Message Queue"
-        events: "Event Bus"
-    }
+  compute: "Compute Layer" {
+    web: "Web Servers"
+    api: "API Servers"
+    workers: "Background Workers"
+  }
+  data: "Data Layer" {
+    primary_db: "Primary Database"
+    replica_db: "Read Replica"
+    cache: "Redis Cache"
+  }
+  messaging: "Messaging" {
+    queue: "Message Queue"
+    events: "Event Bus"
+  }
 }
 
 external: "External Services" {
-    payment: "Payment Gateway"
-    email: "Email Provider"
-    cdn: "CDN"
+  payment: "Payment Gateway"
+  email: "Email Provider"
+  cdn: "CDN"
 }
 
 infrastructure.compute.web -> infrastructure.compute.api
@@ -32,24 +32,32 @@ infrastructure.compute.workers -> external.email
 infrastructure.compute.api -> external.payment
 
 layers: {
-    data_flow: "Data Flow View" { #view
-        infrastructure.compute.api
-        infrastructure.data.primary_db
-        infrastructure.data.replica_db
-        infrastructure.data.cache
-    }
-    async_processing: "Async Processing View" { #view
-        infrastructure.compute.api
-        infrastructure.messaging.queue
-        infrastructure.compute.workers
-        external.email
-    }
-    external_integrations: { #view
-        infrastructure.compute.api
-        external.payment
-        external.email
-        external.cdn
+  data_flow: "Data Flow View" {
+    # view
+    infrastructure.compute.api
+    infrastructure.data.primary_db
+    infrastructure.data.replica_db
+    infrastructure.data.cache
+  }
+  async_processing: "Async Processing View" {
+    # view
+    infrastructure.compute.api
+    infrastructure.messaging.queue
+    infrastructure.compute.workers
+    external.email
+  }
+  external_integrations: {
+    # view
+    infrastructure.compute.api
+    external.payment
+    external.email
+    external.cdn
 
-        note: "All external API calls go through the API servers"
-    }
+    note: "All external API calls go through the API servers"
+  }
+  wildcard: {
+    # view
+    # include pattern=infrastructure.compute.*
+    # include pattern=external.*
+  }
 }

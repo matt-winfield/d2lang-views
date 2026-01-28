@@ -27,7 +27,9 @@ func ProcessViews(viewLayers []*d2graph.Graph, graph *d2graph.Graph) []View {
 // processView processes a single view layer and constructs a View object from it.
 func processView(layer *d2graph.Graph, graph *d2graph.Graph, importCache *compile.ImportCache) View {
 	includeParentsRefs := compile.GetIncludeParentsReferences(graph, layer.Name, importCache)
-	explicitIds := getExplicitObjectIds(layer, includeParentsRefs)
+	includePatterns := compile.GetIncludePatternReferences(graph, layer.Name, importCache)
+	rootObjectIds := compile.ExtractRootObjectIds(graph)
+	explicitIds := getExplicitObjectIds(layer, includeParentsRefs, includePatterns, rootObjectIds)
 
 	return View{
 		Name:    layer.Name,
@@ -40,8 +42,12 @@ func processView(layer *d2graph.Graph, graph *d2graph.Graph, importCache *compil
 
 // processViewObjects processes the objects within a view layer and constructs an array of Object instances.
 // It filters out implicit parent objects and adjusts the parent chain for remaining objects.
+// Objects that are explicit via pattern matching but not in the view layer are also included from the base graph.
 func processViewObjects(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds map[string]struct{}) []*Object {
 	objects := make([]*Object, 0, len(layer.Objects))
+	processedIds := make(map[string]struct{})
+
+	// First, process objects from the view layer
 	for _, obj := range layer.Objects {
 		absId := compile.GetAbsoluteId(obj)
 		if _, isExplicit := explicitIds[strings.ToLower(absId)]; !isExplicit {
@@ -49,17 +55,77 @@ func processViewObjects(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds 
 		}
 		viewObj := processViewObject(obj, graph, explicitIds)
 		objects = append(objects, viewObj)
+		processedIds[strings.ToLower(absId)] = struct{}{}
+	}
+
+	// Then, process objects from the base graph that are explicit (via pattern matching)
+	// but not already processed from the view layer
+	for _, obj := range graph.Objects {
+		absId := compile.GetAbsoluteId(obj)
+		absIdLower := strings.ToLower(absId)
+
+		// Skip if not explicit or already processed
+		if _, isExplicit := explicitIds[absIdLower]; !isExplicit {
+			continue
+		}
+		if _, alreadyProcessed := processedIds[absIdLower]; alreadyProcessed {
+			continue
+		}
+
+		viewObj := processBaseGraphObject(obj, explicitIds)
+		objects = append(objects, viewObj)
+		processedIds[absIdLower] = struct{}{}
 	}
 
 	return objects
 }
 
+// processBaseGraphObject processes an object from the base graph (not present in view layer).
+// Used for pattern-matched objects that need to be included in the view.
+func processBaseGraphObject(obj *d2graph.Object, explicitIds map[string]struct{}) *Object {
+	// Find the new parent by walking up the chain until we find an explicit parent or reach root
+	newParent := findExplicitParent(obj.Parent, explicitIds)
+
+	// Build the filtered absolute ID
+	filteredAbsId := buildFilteredAbsoluteId(obj, explicitIds)
+
+	label := ""
+	if obj.Label.Value != obj.ID {
+		label = getObjectLabel(obj)
+	}
+
+	viewObj := &Object{
+		BaseObject:     obj,
+		ViewObject:     obj, // Same as base since it's not in view layer
+		ID:             obj.ID,
+		Label:          label,
+		ExplicitParent: newParent,
+		IDA:            filteredAbsId,
+	}
+	return viewObj
+}
+
 // getExplicitObjectIds returns a set of absolute IDs for objects that are explicitly referenced in the layer.
 // An object is explicit if it has at least one reference where the reference path length equals the object's path depth.
 // When a reference has the #include-parents comment, all ancestors in that reference path are also marked as explicit.
+// When include patterns are provided, all root objects matching the patterns are also marked as explicit,
+// along with all ancestors of the pattern prefix (similar to include-parents behavior).
 // Keys are stored in lowercase for case-insensitive matching.
-func getExplicitObjectIds(layer *d2graph.Graph, includeParentsRefs map[string]struct{}) map[string]struct{} {
+func getExplicitObjectIds(layer *d2graph.Graph, includeParentsRefs map[string]struct{}, includePatterns []string, rootObjectIds []string) map[string]struct{} {
 	explicitIds := make(map[string]struct{})
+
+	// Process include patterns - add matching root objects and their ancestors as explicit
+	for _, pattern := range includePatterns {
+		// Mark ancestors of the pattern prefix as explicit
+		markPatternAncestorsAsExplicit(pattern, explicitIds)
+
+		// Mark all matching objects as explicit
+		for _, rootId := range rootObjectIds {
+			if matchesIncludePattern(strings.ToLower(rootId), pattern) {
+				explicitIds[strings.ToLower(rootId)] = struct{}{}
+			}
+		}
+	}
 
 	for _, obj := range layer.Objects {
 		absId := compile.GetAbsoluteId(obj)
@@ -89,6 +155,42 @@ func getExplicitObjectIds(layer *d2graph.Graph, includeParentsRefs map[string]st
 	}
 
 	return explicitIds
+}
+
+// markPatternAncestorsAsExplicit marks all ancestors of a pattern's prefix as explicit.
+// For example, pattern "a.b.c.*" will mark "a" and "a.b" as explicit (the prefix "a.b.c" itself
+// will be marked when matching objects).
+func markPatternAncestorsAsExplicit(pattern string, explicitIds map[string]struct{}) {
+	// Extract the prefix (everything before ".*")
+	if !strings.HasSuffix(pattern, ".*") {
+		return
+	}
+	prefix := strings.TrimSuffix(pattern, ".*")
+
+	// Split the prefix into parts and mark each ancestor
+	parts := strings.Split(prefix, ".")
+	for i := 1; i < len(parts); i++ {
+		ancestor := strings.Join(parts[:i], ".")
+		explicitIds[ancestor] = struct{}{}
+	}
+}
+
+// matchesIncludePattern checks if an object ID matches the given pattern.
+// The pattern format is "prefix.*" which matches the prefix itself and all children.
+// For example, "cf.*" matches "cf", "cf.stack1", "cf.stack1.resource1", etc.
+func matchesIncludePattern(objectId, pattern string) bool {
+	// Pattern should end with ".*"
+	if !strings.HasSuffix(pattern, ".*") {
+		return false
+	}
+
+	// Extract the prefix (everything before ".*")
+	prefix := strings.TrimSuffix(pattern, ".*")
+
+	// Match if:
+	// 1. objectId equals the prefix exactly (e.g., "cf" matches "cf.*")
+	// 2. objectId starts with prefix + "." (e.g., "cf.stack1" matches "cf.*")
+	return objectId == prefix || strings.HasPrefix(objectId, prefix+".")
 }
 
 // markAncestorsAsExplicit walks up the parent chain and marks all ancestors as explicit.
@@ -183,7 +285,7 @@ func getObjectLabel(obj *d2graph.Object) string {
 // Edges with #override in the view layer override the labels of matching base edges.
 func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds map[string]struct{}, importCache *compile.ImportCache) []*Edge {
 	// Build a mapping from original absolute IDs to filtered absolute IDs
-	idMapping := buildFilteredIdMapping(layer, explicitIds)
+	idMapping := buildFilteredIdMapping(layer, graph, explicitIds)
 
 	// Get the override edges for this view - we'll track which ones get applied
 	overrideEdges := compile.GetOverrideEdges(graph, layer.Name, importCache)
@@ -308,18 +410,39 @@ func findViewEdge(layer *d2graph.Graph, srcId, dstId string, srcArrow, dstArrow 
 // buildFilteredIdMapping creates a mapping from original absolute IDs to filtered absolute IDs.
 // Only explicit objects are included in the mapping.
 // Keys are stored in lowercase for case-insensitive matching.
-func buildFilteredIdMapping(layer *d2graph.Graph, explicitIds map[string]struct{}) map[string]string {
+// This function considers both view layer objects and base graph objects (for pattern matching).
+func buildFilteredIdMapping(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds map[string]struct{}) map[string]string {
 	idMapping := make(map[string]string)
+	processedIds := make(map[string]struct{})
 
+	// Process view layer objects
 	for _, obj := range layer.Objects {
 		absId := compile.GetAbsoluteId(obj)
-		if _, isExplicit := explicitIds[strings.ToLower(absId)]; !isExplicit {
+		absIdLower := strings.ToLower(absId)
+		if _, isExplicit := explicitIds[absIdLower]; !isExplicit {
 			continue
 		}
 
-		// Build the filtered ID by walking up the parent chain and only including explicit parents
 		filteredId := buildFilteredAbsoluteId(obj, explicitIds)
-		idMapping[strings.ToLower(absId)] = filteredId
+		idMapping[absIdLower] = filteredId
+		processedIds[absIdLower] = struct{}{}
+	}
+
+	// Process base graph objects that are explicit but not in view layer
+	for _, obj := range graph.Objects {
+		absId := compile.GetAbsoluteId(obj)
+		absIdLower := strings.ToLower(absId)
+
+		// Skip if not explicit or already processed
+		if _, isExplicit := explicitIds[absIdLower]; !isExplicit {
+			continue
+		}
+		if _, alreadyProcessed := processedIds[absIdLower]; alreadyProcessed {
+			continue
+		}
+
+		filteredId := buildFilteredAbsoluteId(obj, explicitIds)
+		idMapping[absIdLower] = filteredId
 	}
 
 	return idMapping
