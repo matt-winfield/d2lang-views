@@ -2373,6 +2373,37 @@ layers: {
 }
 `,
 		},
+		{
+			name: "GridColumns",
+			content: `a: "Node A" {
+    grid-columns: 5
+    grid-rows: 2
+    grid-gap: 10
+}
+
+layers: {
+    view1: { #view
+        a
+    }
+}
+`,
+			expected: `a: "Node A" {
+    grid-columns: 5
+    grid-rows: 2
+    grid-gap: 10
+}
+
+layers: {
+    view1: {
+        a: "Node A" {
+            grid-columns: 5
+            grid-rows: 2
+            grid-gap: 10
+        }
+    }
+}
+`,
+		},
 	}
 
 	for _, tt := range tests {

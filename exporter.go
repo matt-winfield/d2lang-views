@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/matt-winfield/d2lang-views/compile"
 	"github.com/matt-winfield/d2lang-views/d2view"
 	"github.com/matt-winfield/d2lang-views/version"
@@ -358,35 +359,39 @@ func getObjectAttributesRepresentation(object *d2view.Object) string {
 
 	// Object-level attributes - view takes precedence over base shape
 	if shape := getMergedScalar(getScalarIfExplicit(base, "shape"), getScalarIfExplicit(view, "shape")); shape != "" {
-		builder.WriteString(fmt.Sprintf("        shape: %s\n", shape))
+		fmt.Fprintf(&builder, "        shape: %s\n", shape)
 	}
 
 	if icon := getMergedIcon(base, view); icon != "" {
-		builder.WriteString(fmt.Sprintf("        icon: %s\n", icon))
+		fmt.Fprintf(&builder, "        icon: %s\n", icon)
 	}
 
 	if tooltip := getMergedScalar(getTooltip(base), getTooltip(view)); tooltip != "" {
-		builder.WriteString(fmt.Sprintf("        tooltip: \"%s\"\n", tooltip))
+		fmt.Fprintf(&builder, "        tooltip: \"%s\"\n", tooltip)
 	}
 
 	if link := getMergedScalar(getLink(base), getLink(view)); link != "" {
-		builder.WriteString(fmt.Sprintf("        link: %s\n", link))
+		fmt.Fprintf(&builder, "        link: %s\n", link)
 	}
 
 	if width := getMergedScalar(getWidth(base), getWidth(view)); width != "" {
-		builder.WriteString(fmt.Sprintf("        width: %s\n", width))
+		fmt.Fprintf(&builder, "        width: %s\n", width)
 	}
 
 	if height := getMergedScalar(getHeight(base), getHeight(view)); height != "" {
-		builder.WriteString(fmt.Sprintf("        height: %s\n", height))
+		fmt.Fprintf(&builder, "        height: %s\n", height)
 	}
 
 	if near := getMergedNear(base, view); near != "" {
-		builder.WriteString(fmt.Sprintf("        near: %s\n", near))
+		fmt.Fprintf(&builder, "        near: %s\n", near)
 	}
 
 	if direction := getMergedScalar(getDirection(base), getDirection(view)); direction != "" {
-		builder.WriteString(fmt.Sprintf("        direction: %s\n", direction))
+		fmt.Fprintf(&builder, "        direction: %s\n", direction)
+	}
+
+	if grid := getMergedScalar(getGridAttributes(base), getGridAttributes(view)); grid != "" {
+		builder.WriteString(grid)
 	}
 
 	// Classes - merge both sets
@@ -420,8 +425,41 @@ func getScalarIfExplicit(obj *d2graph.Object, attrType string) string {
 		if obj.Direction.Value != "" && obj.Direction.MapKey != nil {
 			return obj.Direction.Value
 		}
+	default:
+		color.Yellow("warn: attribute type %s is not recognised and will not be included in the d2view output", attrType)
 	}
+
 	return ""
+}
+
+func getGridAttributes(obj *d2graph.Object) string {
+	var builder strings.Builder
+
+	if obj == nil {
+		return ""
+	}
+
+	if obj.GridColumns != nil && obj.GridColumns.Value != "" {
+		fmt.Fprintf(&builder, "        grid-columns: %s\n", obj.GridColumns.Value)
+	}
+
+	if obj.GridRows != nil && obj.GridRows.Value != "" {
+		fmt.Fprintf(&builder, "        grid-rows: %s\n", obj.GridRows.Value)
+	}
+
+	if obj.GridGap != nil && obj.GridGap.Value != "" {
+		fmt.Fprintf(&builder, "        grid-gap: %s\n", obj.GridGap.Value)
+	}
+
+	if obj.HorizontalGap != nil && obj.HorizontalGap.Value != "" {
+		fmt.Fprintf(&builder, "        horizontal-gap: %s\n", obj.HorizontalGap.Value)
+	}
+
+	if obj.VerticalGap != nil && obj.VerticalGap.Value != "" {
+		fmt.Fprintf(&builder, "        vertical-gap: %s\n", obj.VerticalGap.Value)
+	}
+
+	return builder.String()
 }
 
 // getMergedScalar returns the view value if set, otherwise the base value.
