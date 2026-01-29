@@ -178,8 +178,6 @@ func matchesIncludePattern(objectId, pattern string) bool {
 }
 
 // matchesClass checks if an object ID matches the given class pattern.
-// The pattern format is "prefix.*" which matches the prefix itself and all children.
-// For example, "cf.*" matches "cf", "cf.stack1", "cf.stack1.resource1", etc.
 func matchesClass(objectId, class string, graph *d2graph.Graph) bool {
 	obj, err := compile.FindObjectById(graph, objectId)
 	if err != nil || obj == nil {
@@ -188,7 +186,7 @@ func matchesClass(objectId, class string, graph *d2graph.Graph) bool {
 
 	// Check if the object has the specified class
 	for _, objClass := range obj.Classes {
-		if strings.EqualFold(objClass, class) {
+		if matchesWildcard(strings.ToLower(class), strings.ToLower(objClass)) {
 			return true
 		}
 	}

@@ -1582,6 +1582,129 @@ layers: {
 				{},
 			},
 		},
+		{
+			name: "include class with wildcard matches classes",
+			content: `
+a: "Node A" {
+    class: db-a
+}
+
+b: "Node B" {
+	class: db-b
+}
+
+c: "Node C" {
+	class: api-a
+}
+
+layers: {
+	view1: { #view
+		# include class=db-*
+	}
+}
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+				ida   []string
+			}{
+				{
+					{id: "a", label: "Node A", ida: []string{"a"}},
+					{id: "b", label: "Node B", ida: []string{"b"}},
+				},
+			},
+			expectedEdgesPerView: [][]struct {
+				src      string
+				dst      string
+				srcArrow bool
+				dstArrow bool
+			}{
+				{},
+			},
+		},
+		{
+			name: "include class with surrounding wildcard matches classes",
+			content: `
+a: "Node A" {
+    class: some-db-a
+}
+
+b: "Node B" {
+	class: some-db-b
+}
+
+c: "Node C" {
+	class: api-a
+}
+
+layers: {
+	view1: { #view
+		# include class=*-db-*
+	}
+}
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+				ida   []string
+			}{
+				{
+					{id: "a", label: "Node A", ida: []string{"a"}},
+					{id: "b", label: "Node B", ida: []string{"b"}},
+				},
+			},
+			expectedEdgesPerView: [][]struct {
+				src      string
+				dst      string
+				srcArrow bool
+				dstArrow bool
+			}{
+				{},
+			},
+		},
+		{
+			name: "include class with infix wildcard matches classes",
+			content: `
+a: "Node A" {
+    class: service-test-live
+}
+
+b: "Node B" {
+	class: service-something-live
+}
+
+c: "Node C" {
+	class: api-a
+}
+
+layers: {
+	view1: { #view
+		# include class=service-*-live
+	}
+}
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+				ida   []string
+			}{
+				{
+					{id: "a", label: "Node A", ida: []string{"a"}},
+					{id: "b", label: "Node B", ida: []string{"b"}},
+				},
+			},
+			expectedEdgesPerView: [][]struct {
+				src      string
+				dst      string
+				srcArrow bool
+				dstArrow bool
+			}{
+				{},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

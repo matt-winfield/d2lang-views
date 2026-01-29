@@ -399,6 +399,7 @@ layers: {
 
 Note that children of matching entities are NOT automatically included, unless they also match the class.
 Parent containers of a matching entity are also NOT automatically included, unless explicitly referenced.
+The class may include wildcards, e.g. `# include class=service-*`, `# include class=*-db`. The class matching is case-insensitive.
 
 ## Features
 
@@ -425,7 +426,7 @@ Parent containers of a matching entity are also NOT automatically included, unle
 - [x] Support CLI option to disable outputting non-view layers as SVGs.
 - [ ] Support disabling outputting the compiled D2 file via CLI option.
 - [x] Support `# include class=<class-name>` to include entities of a specific class in the view. (tagging)
-    - [ ] Support class wildcards e.g. `# include class=service-*`, `# include class=*-db`
+    - [x] Support class wildcards e.g. `# include class=service-*`, `# include class=*-db`
 - [x] Support wildcard references `# include pattern=something.*` to include multiple entities matching a pattern.
     - [x] Support wildcards not at the end e.g. `# include pattern=*-worker`, `# include pattern=service-*-db`
 - [x] Support auto-including parent containers via `# include-parents` comment following the entity reference.
