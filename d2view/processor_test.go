@@ -1352,6 +1352,81 @@ layers: {
 				{},
 			},
 		},
+		{
+			name: "wildcard_prefix_pattern",
+			content: `
+root: "Root" {
+    a {
+        stack: "Stack 1"
+    }
+	b {
+		stack: "Stack 2"
+	}
+}
+layers: {
+    view1: { #view
+        # include pattern=*.stack
+    }
+}
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+				ida   []string
+			}{
+				{
+					{id: "stack", label: "Stack 1", ida: []string{"stack"}},
+					{id: "stack", label: "Stack 2", ida: []string{"stack"}},
+				},
+			},
+			expectedEdgesPerView: [][]struct {
+				src      string
+				dst      string
+				srcArrow bool
+				dstArrow bool
+			}{
+				{},
+			},
+		},
+		{
+			name: "wildcard_infix_pattern",
+			content: `
+root: "Root" {
+    a {
+        stack: "Stack 1"
+    }
+	b {
+		stack: "Stack 2"
+	}
+}
+layers: {
+    view1: { #view
+        # include pattern=root.*.stack
+    }
+}
+`,
+			expectedViewNames: []string{"view1"},
+			expectedObjectsPerView: [][]struct {
+				id    string
+				label string
+				ida   []string
+			}{
+				{
+					{id: "root", label: "Root", ida: []string{"root"}},
+					{id: "stack", label: "Stack 1", ida: []string{"root", "stack"}},
+					{id: "stack", label: "Stack 2", ida: []string{"root", "stack"}},
+				},
+			},
+			expectedEdgesPerView: [][]struct {
+				src      string
+				dst      string
+				srcArrow bool
+				dstArrow bool
+			}{
+				{},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1807,6 +1882,241 @@ layers: {
 						t.Fatalf("expected edge destination arrow '%v', got '%v'", expectedEdge.dstArrow, edge.DstArrow)
 					}
 				}
+			}
+		})
+	}
+}
+
+func TestMatchWildcard(t *testing.T) {
+	tests := []struct {
+		name     string
+		pattern  string
+		str      string
+		expected bool
+	}{
+		{
+			name:     "exact match no wildcards",
+			pattern:  "hello",
+			str:      "hello",
+			expected: true,
+		},
+		{
+			name:     "no match no wildcards",
+			pattern:  "hello",
+			str:      "world",
+			expected: false,
+		},
+		{
+			name:     "single wildcard matches everything",
+			pattern:  "*",
+			str:      "anything",
+			expected: true,
+		},
+		{
+			name:     "single wildcard matches empty string",
+			pattern:  "*",
+			str:      "",
+			expected: true,
+		},
+		{
+			name:     "prefix wildcard at end",
+			pattern:  "hello*",
+			str:      "helloworld",
+			expected: true,
+		},
+		{
+			name:     "prefix wildcard at end - exact match",
+			pattern:  "hello*",
+			str:      "hello",
+			expected: true,
+		},
+		{
+			name:     "prefix wildcard at end - no match",
+			pattern:  "hello*",
+			str:      "world",
+			expected: false,
+		},
+		{
+			name:     "suffix wildcard at start",
+			pattern:  "*world",
+			str:      "helloworld",
+			expected: true,
+		},
+		{
+			name:     "suffix wildcard at start - exact match",
+			pattern:  "*world",
+			str:      "world",
+			expected: true,
+		},
+		{
+			name:     "suffix wildcard at start - no match",
+			pattern:  "*world",
+			str:      "hello",
+			expected: false,
+		},
+		{
+			name:     "wildcard in middle",
+			pattern:  "hello*world",
+			str:      "hello beautiful world",
+			expected: true,
+		},
+		{
+			name:     "wildcard in middle - minimal match",
+			pattern:  "hello*world",
+			str:      "helloworld",
+			expected: true,
+		},
+		{
+			name:     "wildcard in middle - no match prefix",
+			pattern:  "hello*world",
+			str:      "hi world",
+			expected: false,
+		},
+		{
+			name:     "wildcard in middle - no match suffix",
+			pattern:  "hello*world",
+			str:      "hello universe",
+			expected: false,
+		},
+		{
+			name:     "two wildcards",
+			pattern:  "a*b*c",
+			str:      "aXbYc",
+			expected: true,
+		},
+		{
+			name:     "two wildcards - minimal",
+			pattern:  "a*b*c",
+			str:      "abc",
+			expected: true,
+		},
+		{
+			name:     "two wildcards - complex",
+			pattern:  "a*b*c",
+			str:      "aXXXbYYYc",
+			expected: true,
+		},
+		{
+			name:     "two wildcards - repeated char",
+			pattern:  "a*b*c",
+			str:      "aXbYbZc",
+			expected: true,
+		},
+		{
+			name:     "three wildcards",
+			pattern:  "a*b*c*d",
+			str:      "aXbYcZd",
+			expected: true,
+		},
+		{
+			name:     "consecutive wildcards",
+			pattern:  "a**b",
+			str:      "aXb",
+			expected: true,
+		},
+		{
+			name:     "consecutive wildcards - minimal",
+			pattern:  "a**b",
+			str:      "ab",
+			expected: true,
+		},
+		{
+			name:     "wildcard at both ends",
+			pattern:  "*hello*",
+			str:      "worldhelloworld",
+			expected: true,
+		},
+		{
+			name:     "wildcard at both ends - minimal",
+			pattern:  "*hello*",
+			str:      "hello",
+			expected: true,
+		},
+		{
+			name:     "wildcard at both ends - no match",
+			pattern:  "*hello*",
+			str:      "world",
+			expected: false,
+		},
+		{
+			name:     "complex pattern with multiple segments",
+			pattern:  "start*middle*end",
+			str:      "start123middle456end",
+			expected: true,
+		},
+		{
+			name:     "complex pattern - segments out of order",
+			pattern:  "start*middle*end",
+			str:      "startendmiddle",
+			expected: false,
+		},
+		{
+			name:     "greedy matching test 1",
+			pattern:  "a*a*a",
+			str:      "aaa",
+			expected: true,
+		},
+		{
+			name:     "greedy matching test 2",
+			pattern:  "a*a*a",
+			str:      "aXaYa",
+			expected: true,
+		},
+		{
+			name:     "greedy matching test 3",
+			pattern:  "a*a*a",
+			str:      "aXaYaZa",
+			expected: true,
+		},
+		{
+			name:     "greedy matching test 4 - should fail if greedy",
+			pattern:  "a*a",
+			str:      "aa",
+			expected: true,
+		},
+		{
+			name:     "empty pattern empty string",
+			pattern:  "",
+			str:      "",
+			expected: true,
+		},
+		{
+			name:     "empty pattern non-empty string",
+			pattern:  "",
+			str:      "hello",
+			expected: false,
+		},
+		{
+			name:     "non-empty pattern empty string",
+			pattern:  "hello",
+			str:      "",
+			expected: false,
+		},
+		{
+			name:     "d2 pattern - cloud resources",
+			pattern:  "cf.*",
+			str:      "cf.stack1",
+			expected: true,
+		},
+		{
+			name:     "d2 pattern - deep nesting",
+			pattern:  "cf.*",
+			str:      "cf.stack1.something",
+			expected: true,
+		},
+		{
+			name:     "d2 pattern - nested resources",
+			pattern:  "cf.*.resources.*",
+			str:      "cf.stack1.resources.bucket1",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := matchesWildcard(tt.pattern, tt.str)
+			if result != tt.expected {
+				t.Errorf("matchWildcard(%q, %q) = %v, want %v", tt.pattern, tt.str, result, tt.expected)
 			}
 		})
 	}

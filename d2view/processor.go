@@ -174,18 +174,7 @@ func matchesIncludePattern(objectId, pattern string) bool {
 		return true
 	}
 
-	// Pattern should end with ".*"
-	if !strings.HasSuffix(pattern, ".*") {
-		return false
-	}
-
-	// Extract the prefix (everything before ".*")
-	prefix := strings.TrimSuffix(pattern, ".*")
-
-	// Match if:
-	// 1. objectId equals the prefix exactly (e.g., "cf" matches "cf.*")
-	// 2. objectId starts with prefix + "." (e.g., "cf.stack1" matches "cf.*")
-	return objectId == prefix || strings.HasPrefix(objectId, prefix+".")
+	return matchesWildcard(pattern, objectId)
 }
 
 // matchesClass checks if an object ID matches the given class pattern.
@@ -205,6 +194,68 @@ func matchesClass(objectId, class string, graph *d2graph.Graph) bool {
 	}
 
 	return false
+}
+
+// matchesWildcard checks if a string matches a wildcard pattern.
+// The pattern can contain '*' which matches any sequence of characters (including empty sequences).
+//
+// Examples:
+//   - matchesWildcard("hello*", "helloworld") -> true
+//   - matchesWildcard("*world", "helloworld") -> true
+//   - matchesWildcard("a*b*c", "aXbYc") -> true
+//   - matchesWildcard("*", "anything") -> true
+//
+// Algorithm:
+// 1. Split pattern by '*' to get literal segments that must appear in order
+// 2. Check if string starts with first segment (if not empty due to leading '*')
+// 3. For each middle segment, find its first occurrence and advance past it
+// 4. Check if string ends with last segment (if not empty due to trailing '*')
+//
+// Time Complexity: O(n*m) where n = len(str), m = number of pattern segments
+// Space Complexity: O(m) for storing split pattern parts
+func matchesWildcard(pattern, str string) bool {
+	// Optimization: single wildcard matches everything
+	if pattern == "*" {
+		return true
+	}
+
+	parts := strings.Split(pattern, "*")
+
+	// No wildcards - require exact match
+	if len(parts) == 1 {
+		return pattern == str
+	}
+
+	// Check prefix (first part before any wildcard)
+	if len(parts[0]) > 0 {
+		if !strings.HasPrefix(str, parts[0]) {
+			return false
+		}
+		str = str[len(parts[0]):]
+	}
+
+	// Check middle parts - each must appear in order
+	for i := 1; i < len(parts)-1; i++ {
+		// Skip empty parts from consecutive wildcards (e.g., "a**b" creates ["a", "", "b"])
+		if len(parts[i]) == 0 {
+			continue
+		}
+
+		idx := strings.Index(str, parts[i])
+		if idx == -1 {
+			return false
+		}
+		// Advance past this match
+		str = str[idx+len(parts[i]):]
+	}
+
+	// Check suffix (last part after final wildcard)
+	lastPart := parts[len(parts)-1]
+	if len(lastPart) > 0 {
+		return strings.HasSuffix(str, lastPart) && len(str) >= len(lastPart)
+	}
+
+	return true
 }
 
 // markAncestorsAsExplicit walks up the parent chain and marks all ancestors as explicit.

@@ -427,7 +427,7 @@ Parent containers of a matching entity are also NOT automatically included, unle
 - [x] Support `# include class=<class-name>` to include entities of a specific class in the view. (tagging)
     - [ ] Support class wildcards e.g. `# include class=service-*`, `# include class=*-db`
 - [x] Support wildcard references `# include pattern=something.*` to include multiple entities matching a pattern.
-    - [ ] Support wildcards not at the end e.g. `# include pattern=*-worker`, `# include pattern=service-*-db`
+    - [x] Support wildcards not at the end e.g. `# include pattern=*-worker`, `# include pattern=service-*-db`
 - [x] Support auto-including parent containers via `# include-parents` comment following the entity reference.
 - [x] Include comments around the generated view definitions for clarity. Include the version of the tool used to generate it.
 - [x] Automatically compile the generated view diagrams using the D2 CLI.
