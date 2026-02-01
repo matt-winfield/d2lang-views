@@ -307,6 +307,50 @@ The `#override` comment:
 
 Edge styles, classes, and other properties from the base diagram are automatically preserved in views, even without `#override`.
 
+### Removing Edges
+
+Use `#remove` to exclude specific edges from the base diagram in a view:
+
+```d2
+client: "Web Client"
+server: "API Server"
+database: "PostgreSQL"
+
+client -> server: "HTTP requests"
+server -> database: "SQL queries"
+
+layers: {
+    client_view: { #view
+        client
+        server
+        database
+        server -> database #remove
+    }
+}
+```
+
+Generates:
+
+```d2
+layers: {
+    client_view: {
+        client: "Web Client"
+        server: "API Server"
+        database: "PostgreSQL"
+        client -> server: "HTTP requests"
+    }
+}
+```
+
+The `#remove` comment:
+
+- Removes **all** matching edges from the base diagram (not just the first)
+- Matches by source, destination, and arrow direction
+- The removed edge is not added as a new edge
+- Works with all edge types (`->`, `<-`, `<->`, `--`)
+- Matches edges case-insensitively
+- Can be combined with `#override` on other edges in the same view
+
 ### Referencing with Wildcards
 
 You can reference multiple entities using wildcard patterns with `# include pattern=<pattern>`:
@@ -410,6 +454,7 @@ The class may include wildcards, e.g. `# include class=service-*`, `# include cl
 - Auto-include parent containers with `# include-parents` comment
 - Preserve edge styles, classes, and properties from base diagram
 - Override edge properties with `#override` for view-specific context
+- Remove specific edges from views with `#remove`
 - Custom view layer names
 - Mix referenced and new entities in views
 
@@ -420,7 +465,7 @@ The class may include wildcards, e.g. `# include class=service-*`, `# include cl
 - [x] Maintain view keywords such as `direction`, `grid-*`, etc.
 - [x] Allow adding or overriding edge properties in views (using `#override` syntax).
 - [x] Preserve edge styles/classes/properties from the base diagram.
-- [ ] Allow removing edges from views (using `#remove` syntax).
+- [x] Allow removing edges from views (using `#remove` syntax).
 - [x] Maintain `title: |md` multi-line labels from the base diagram.
 - [x] Output the generated d2 diagram in the same directory as the source (to preserve relative import paths).
 - [x] Support CLI option to disable outputting non-view layers as SVGs.

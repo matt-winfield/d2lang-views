@@ -793,6 +793,166 @@ layers: {
 	}
 }
 
+func TestGetRemoveEdges(t *testing.T) {
+	tests := []struct {
+		name          string
+		content       string
+		viewName      string
+		expectedCount int
+	}{
+		{
+			name: "single_remove_edge",
+			content: `a: "A"
+b: "B"
+a -> b: "original"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b #remove
+    }
+}
+`,
+			viewName:      "view1",
+			expectedCount: 1,
+		},
+		{
+			name: "multiple_remove_edges",
+			content: `a: "A"
+b: "B"
+c: "C"
+
+a -> b: "first"
+b -> c: "second"
+
+layers: {
+    view1: { #view
+        a
+        b
+        c
+        a -> b #remove
+        b -> c #remove
+    }
+}
+`,
+			viewName:      "view1",
+			expectedCount: 2,
+		},
+		{
+			name: "no_remove_edges",
+			content: `a: "A"
+b: "B"
+a -> b: "original"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b: "new edge"
+    }
+}
+`,
+			viewName:      "view1",
+			expectedCount: 0,
+		},
+		{
+			name: "mixed_remove_and_normal_edges",
+			content: `a: "A"
+b: "B"
+c: "C"
+
+a -> b: "original"
+
+layers: {
+    view1: { #view
+        a
+        b
+        c
+        a -> b #remove
+        b -> c: "new edge"
+    }
+}
+`,
+			viewName:      "view1",
+			expectedCount: 1,
+		},
+		{
+			name: "remove_in_different_view",
+			content: `a: "A"
+b: "B"
+a -> b: "original"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b #remove
+    }
+    view2: { #view
+        a
+        b
+    }
+}
+`,
+			viewName:      "view2",
+			expectedCount: 0,
+		},
+		{
+			name: "remove_nested_entities",
+			content: `parent: {
+    child1: "C1"
+    child2: "C2"
+}
+parent.child1 -> parent.child2: "original"
+
+layers: {
+    view1: { #view
+        parent.child1
+        parent.child2
+        parent.child1 -> parent.child2 #remove
+    }
+}
+`,
+			viewName:      "view1",
+			expectedCount: 1,
+		},
+		{
+			name: "remove_backward_arrow",
+			content: `a: "A"
+b: "B"
+a <- b: "backward"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a <- b #remove
+    }
+}
+`,
+			viewName:      "view1",
+			expectedCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := strings.NewReader(tt.content)
+			graph, _, err := CompileD2("test.d2", reader)
+			if err != nil {
+				t.Fatalf("failed to parse: %v", err)
+			}
+
+			removeEdges := GetRemoveEdges(graph, tt.viewName, nil)
+
+			if len(removeEdges) != tt.expectedCount {
+				t.Fatalf("expected %d remove edges, got %d", tt.expectedCount, len(removeEdges))
+			}
+		})
+	}
+}
+
 func TestGetOverrideEdges(t *testing.T) {
 	tests := []struct {
 		name           string

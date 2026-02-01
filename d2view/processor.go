@@ -350,6 +350,9 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds ma
 	// Build a mapping from original absolute IDs to filtered absolute IDs
 	idMapping := buildFilteredIdMapping(layer, graph, explicitIds)
 
+	// Get the remove edges for this view
+	removeEdges := compile.GetRemoveEdges(graph, layer.Name, importCache)
+
 	// Get the override edges for this view - we'll track which ones get applied
 	overrideEdges := compile.GetOverrideEdges(graph, layer.Name, importCache)
 	appliedOverrides := make(map[compile.OverrideEdgeKey]struct{})
@@ -365,6 +368,11 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds ma
 		filteredDstId, dstInView := idMapping[strings.ToLower(dstId)]
 
 		if srcInView && dstInView {
+			// Check if this edge should be removed
+			if isRemovedEdge(srcId, dstId, edge.SrcArrow, edge.DstArrow, removeEdges) {
+				continue
+			}
+
 			newEdge := &Edge{
 				Src:      filteredSrcId,
 				Dst:      filteredDstId,
@@ -397,6 +405,7 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds ma
 
 	// Process edges defined in the view layer
 	allOverrideEdges := compile.GetOverrideEdges(graph, layer.Name, importCache)
+	allRemoveEdges := compile.GetRemoveEdges(graph, layer.Name, importCache)
 	for _, edge := range layer.Edges {
 		srcId := compile.GetAbsoluteId(edge.Src)
 		dstId := compile.GetAbsoluteId(edge.Dst)
@@ -405,6 +414,11 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds ma
 		filteredDstId, dstExists := idMapping[strings.ToLower(dstId)]
 
 		if srcExists && dstExists {
+			// Skip edges marked with #remove (they should not be added as new edges)
+			if isRemovedEdge(srcId, dstId, edge.SrcArrow, edge.DstArrow, allRemoveEdges) {
+				continue
+			}
+
 			// Check if this is an override edge
 			overrideKey, isOverride := getOverrideKey(srcId, dstId, edge.SrcArrow, edge.DstArrow, allOverrideEdges)
 			if isOverride {
@@ -435,6 +449,19 @@ func processViewEdges(layer *d2graph.Graph, graph *d2graph.Graph, explicitIds ma
 	}
 
 	return edges
+}
+
+// isRemovedEdge checks if the given edge parameters match a remove edge.
+func isRemovedEdge(srcId, dstId string, srcArrow, dstArrow bool, removeEdges map[compile.RemoveEdgeKey]struct{}) bool {
+	for key := range removeEdges {
+		if strings.ToLower(srcId) == key.SrcID &&
+			strings.ToLower(dstId) == key.DstID &&
+			srcArrow == key.SrcArrow &&
+			dstArrow == key.DstArrow {
+			return true
+		}
+	}
+	return false
 }
 
 // getOverrideKey checks if the given edge parameters match an override edge and returns the key.

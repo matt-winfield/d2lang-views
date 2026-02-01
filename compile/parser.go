@@ -140,6 +140,15 @@ func extractObjectIds(node *d2graph.Object, prefix string, entities map[string]s
 	}
 }
 
+// RemoveEdgeKey uniquely identifies an edge for removal purposes.
+// Uses lowercase IDs for case-insensitive matching.
+type RemoveEdgeKey struct {
+	SrcID    string
+	DstID    string
+	SrcArrow bool
+	DstArrow bool
+}
+
 // OverrideEdgeKey uniquely identifies an edge for override purposes.
 // Uses lowercase IDs for case-insensitive matching.
 type OverrideEdgeKey struct {
@@ -247,6 +256,70 @@ func GetOverrideEdges(graph *d2graph.Graph, viewName string, cache *ImportCache)
 	}
 
 	return result
+}
+
+// GetRemoveEdges returns a set of edges that have the #remove comment in the given view layer.
+// The returned map uses edge keys for matching against base layer edges.
+// This function also scans imported files within the view for remove comments.
+// If cache is nil, imports will be parsed on-demand (less efficient for multiple views).
+func GetRemoveEdges(graph *d2graph.Graph, viewName string, cache *ImportCache) map[RemoveEdgeKey]struct{} {
+	result := make(map[RemoveEdgeKey]struct{})
+
+	// Collect all nodes from the view and its imports
+	allNodeSets := collectAllViewNodes(graph, viewName, cache)
+
+	// Extract remove edges from all node sets
+	for _, nodes := range allNodeSets {
+		for i, node := range nodes {
+			if key, ok := extractRemoveEdge(node, nodes, i); ok {
+				result[key] = struct{}{}
+			}
+		}
+	}
+
+	return result
+}
+
+// extractRemoveEdge checks if the node at index i is an edge with an inline #remove comment.
+// Returns the RemoveEdgeKey and true if found, otherwise returns empty key and false.
+func extractRemoveEdge(node d2ast.MapNodeBox, nodes []d2ast.MapNodeBox, i int) (RemoveEdgeKey, bool) {
+	if node.MapKey == nil || len(node.MapKey.Edges) == 0 {
+		return RemoveEdgeKey{}, false
+	}
+
+	if !hasInlineRemoveComment(node, nodes, i) {
+		return RemoveEdgeKey{}, false
+	}
+
+	edge := node.MapKey.Edges[0]
+	return RemoveEdgeKey{
+		SrcID:    strings.ToLower(getKeyPathString(edge.Src)),
+		DstID:    strings.ToLower(getKeyPathString(edge.Dst)),
+		SrcArrow: edge.SrcArrow != "",
+		DstArrow: edge.DstArrow != "",
+	}, true
+}
+
+// hasInlineRemoveComment checks if the next node is a #remove comment on the same line as the edge.
+func hasInlineRemoveComment(node d2ast.MapNodeBox, nodes []d2ast.MapNodeBox, i int) bool {
+	if i+1 >= len(nodes) {
+		return false
+	}
+
+	nextNode := nodes[i+1]
+	if nextNode.Comment == nil {
+		return false
+	}
+
+	if strings.TrimSpace(nextNode.Comment.Value) != "remove" {
+		return false
+	}
+
+	commentLine := nextNode.Comment.Range.Start.Line
+	edgeStartLine := node.MapKey.Range.Start.Line
+	edgeEndLine := node.MapKey.Range.End.Line
+
+	return commentLine == edgeStartLine || commentLine == edgeEndLine
 }
 
 // getViewASTNodes returns the AST nodes for a specific view layer.

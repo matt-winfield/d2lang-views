@@ -2388,6 +2388,258 @@ layers: {
 }
 `,
 		},
+		// Edge remove tests using #remove
+		{
+			name: "EdgeRemove_RemovesSingleEdge",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "original label"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b #remove
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "original label"
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+    }
+}
+`,
+		},
+		{
+			name: "EdgeRemove_RemovesAllMatchingEdges",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "first"
+a -> b: "second"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b #remove
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "first"
+a -> b: "second"
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+    }
+}
+`,
+		},
+		{
+			name: "EdgeRemove_OnlyRemovesMatchingDirection",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "forward"
+a <- b: "backward"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b #remove
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "forward"
+a <- b: "backward"
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        a <- b: "backward"
+    }
+}
+`,
+		},
+		{
+			name: "EdgeRemove_WithNestedEntities",
+			content: `parent: {
+    child1: "Child 1"
+    child2: "Child 2"
+}
+
+parent.child1 -> parent.child2: "connection"
+
+layers: {
+    view1: { #view
+        parent.child1
+        parent.child2
+        parent.child1 -> parent.child2 #remove
+    }
+}
+`,
+			expected: `parent: {
+    child1: "Child 1"
+    child2: "Child 2"
+}
+
+parent.child1 -> parent.child2: "connection"
+
+layers: {
+    view1: {
+        child1: "Child 1"
+        child2: "Child 2"
+    }
+}
+`,
+		},
+		{
+			name: "EdgeRemove_CaseInsensitiveMatching",
+			content: `NodeA: "Entity A"
+NodeB: "Entity B"
+
+NodeA -> NodeB: "original"
+
+layers: {
+    view1: { #view
+        nodea
+        nodeb
+        nodea -> nodeb #remove
+    }
+}
+`,
+			expected: `NodeA: "Entity A"
+NodeB: "Entity B"
+
+NodeA -> NodeB: "original"
+
+layers: {
+    view1: {
+        nodea: "Entity A"
+        nodeb: "Entity B"
+    }
+}
+`,
+		},
+		{
+			name: "EdgeRemove_MixedRemoveAndOverride",
+			content: `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+a -> b: "ab edge"
+b -> c: "bc edge"
+
+layers: {
+    view1: { #view
+        a
+        b
+        c
+        a -> b #remove
+        b -> c: "new bc label" #override
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+a -> b: "ab edge"
+b -> c: "bc edge"
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        c: "Entity C"
+        b -> c: "new bc label"
+    }
+}
+`,
+		},
+		{
+			name: "EdgeRemove_DoesNotAddRemovedEdgeAsNew",
+			content: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "original"
+
+layers: {
+    view1: { #view
+        a
+        b
+        a -> b #remove
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+
+a -> b: "original"
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+    }
+}
+`,
+		},
+		{
+			name: "EdgeRemove_KeepsOtherEdgesIntact",
+			content: `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+a -> b: "keep this"
+a -> c: "remove this"
+b -> c: "keep this too"
+
+layers: {
+    view1: { #view
+        a
+        b
+        c
+        a -> c #remove
+    }
+}
+`,
+			expected: `a: "Entity A"
+b: "Entity B"
+c: "Entity C"
+
+a -> b: "keep this"
+a -> c: "remove this"
+b -> c: "keep this too"
+
+layers: {
+    view1: {
+        a: "Entity A"
+        b: "Entity B"
+        c: "Entity C"
+        a -> b: "keep this"
+        b -> c: "keep this too"
+    }
+}
+`,
+		},
 		{
 			name: "GridColumns",
 			content: `a: "Node A" {
